@@ -1,0 +1,35 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Sales Invoice",
+  "enabled": 0,
+  "modified": "2025-05-14 18:56:30.441031",
+  "module": null,
+  "name": "Invoice-Warehouse_on_User",
+  "script": "frappe.ui.form.on('Sales Invoice', {\r\n    onload: function(frm) {\r\n        // Define user-to-warehouse mapping on invoice creation\r\n        const userWarehouseMap = {\r\n            'jjpuebla@gmail.com': 'Sucursal Guamaní Inventario - A',\r\n        };\r\n\r\n        // Get the current logged-in user\r\n        const currentUser = frappe.session.user;\r\n\r\n        // If there's a match, set the Source Warehouse field\r\n        if (userWarehouseMap[currentUser]) {\r\n            frm.set_value('set_warehouse', userWarehouseMap[currentUser]);\r\n        }\r\n    }\r\n});",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Sales Invoice",
+  "enabled": 0,
+  "modified": "2025-05-14 18:56:23.931808",
+  "module": null,
+  "name": "test responsive less than 768",
+  "script": "frappe.ui.form.on('Sales Invoice', {\r\n    refresh(frm) {\r\n        // Only run on small screens\r\n        if (window.innerWidth < 768) {\r\n            const hide_columns = ['uom', 'conversion_factor', 'warehouse', 'discount_percentage', 'item_group', 'description'];\r\n            frm.fields_dict.items.grid.visible_columns = frm.fields_dict.items.grid.visible_columns\r\n                .filter(col => !hide_columns.includes(col.df.fieldname));\r\n\r\n            frm.fields_dict.items.grid.refresh();\r\n        }\r\n    }\r\n});",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Customer",
+  "enabled": 1,
+  "modified": "2025-07-13 02:53:51.154751",
+  "module": null,
+  "name": "JOS_Tax_Id_Validador",
+  "script": "frappe.ui.form.on('Customer', {\r\n    validated_id: function(frm) {\r\n        let value = frm.doc.validated_id;\r\n\r\n        function isValidEcuadorTaxID(id) {\r\n            // Sample logic: length 10 or 13, numeric\r\n            return /^\\d{10}(\\d{3})?$/.test(id);\r\n        }\r\n\r\n        if (isValidEcuadorTaxID(value)) {\r\n            frm.set_value('tax_id', value);\r\n            frm.fields_dict.validated_id.$wrapper.css('background-color', '#d4edda');\r\n        } else {\r\n            frm.fields_dict.validated_id.$wrapper.css('background-color', '#f8d7da');\r\n            frappe.msgprint(__('Invalid Ecuadorian Tax ID'));\r\n        }\r\n    }\r\n});\r\n",
+  "view": "Form"
+ }
+]

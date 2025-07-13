@@ -5,6 +5,9 @@ app_description = "Facturación electrónica Joselo "
 app_email = "jjpuebla@hotmail.com"
 app_license = "mit"
 
+fixtures = ["Custom Field", "Client Script"]
+
+
 # Apps
 # ------------------
 

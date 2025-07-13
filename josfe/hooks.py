@@ -7,6 +7,13 @@ app_license = "mit"
 
 fixtures = ["Custom Field", "Client Script"]
 
+doc_events = {
+    "Customer": {
+        "validate": "josfe.custom.customer.customer.validate_tax_id"
+    }
+}
+
+
 
 # Apps
 # ------------------

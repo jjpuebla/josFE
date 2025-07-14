@@ -1,7 +1,7 @@
 # server_side_tax_id_validation.py
+
 import frappe
 from frappe import _
-
 
 def validate_tax_id(doc, method):
     raw_id = (doc.get("custom_jos_tax_id_validador") or "").strip().upper()
@@ -9,30 +9,37 @@ def validate_tax_id(doc, method):
     if not raw_id:
         frappe.throw(_("Identificación Fiscal es obligatoria."))
 
-    # Allow '9999999999999' as valid (Consumidor Final)
+    # Consumidor Final (valid dummy RUC)
     if raw_id == "9999999999999":
         doc.tax_id = raw_id
+        doc.customer_type = "Individual"
         return
 
-    # Accept anything that starts with P- (Pasaporte extranjero)
+    # Pasaporte extranjero
     if raw_id.startswith("P-"):
-        doc.tax_id = raw_id[2:]  # Strip "P-" and save only the number
+        doc.tax_id = raw_id[2:]
+        doc.customer_type = "Individual"
         return
 
-    # Must be 10 or 13 digits if not a passport
+    # Validate digit structure
     if not raw_id.isdigit() or len(raw_id) not in [10, 13]:
         frappe.throw(_("La Identificación Fiscal debe tener 10 o 13 dígitos, o iniciar con 'P-' para pasaportes."))
 
-    # Validate Ecuadorian Cédula or RUC
+    # Validate Ecuadorian ID
     if not is_valid_ec_tax_id(raw_id):
         frappe.throw(_("Identificación Fiscal inválida (ni Cédula ni RUC)."))
 
-    # Check for duplicates in other customers
-    if frappe.db.exists("Customer", {"custom_jos_tax_id_validador": raw_id, "name": ("!=", doc.name)}):
+    # Check for duplicate Tax ID
+    if frappe.db.exists("Customer", {
+        "custom_jos_tax_id_validador": raw_id,
+        "name": ("!=", doc.name)
+    }):
         frappe.throw(_("Ya existe un cliente con la misma Identificación Fiscal."))
 
-    # Passed all checks
+    # Assign validated Tax ID and Customer Type
     doc.tax_id = raw_id
+    third_digit = int(raw_id[2])
+    doc.customer_type = "Individual" if third_digit < 6 else "Company"
 
 
 def is_valid_ec_tax_id(id):

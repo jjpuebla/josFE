@@ -5,7 +5,21 @@ app_description = "Facturación electrónica Joselo "
 app_email = "jjpuebla@hotmail.com"
 app_license = "mit"
 
-fixtures = ["Custom Field", "Client Script"]
+fixtures = [
+    {
+        "dt": "Client Script",
+        "filters": [["name", "=", "JOS_Tax_Id_Validador"]]
+    },
+    {
+        "dt": "Custom Field",
+        "filters": [["name", "=", "Customer-custom_jos_tax_id_validador"]]
+    },
+    {
+        "dt": "Property Setter",
+        "filters": [["doc_type", "=", "Customer"], ["field_name", "in", ["customer_type", "salutation"]]
+        ]
+    }
+]
 
 doc_events = {
     "Customer": {

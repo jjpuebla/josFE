@@ -16,14 +16,14 @@ fixtures = [
     },
     {
         "dt": "Property Setter",
-        "filters": [["doc_type", "=", "Customer"], ["field_name", "in", ["customer_type", "salutation"]]
+        "filters": [["doc_type", "=", "Customer"], ["field_name", "in", ["customer_type", "salutation", "tax_id"]]
         ]
     }
 ]
 
 doc_events = {
     "Customer": {
-        "validate": "josfe.custom.customer.customer.validate_tax_id"
+        "validate": "josfe.custom.Server_Tax_Id_Validador.Tax_Id_Validador.validate_tax_id"
     }
 }
 

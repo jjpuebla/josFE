@@ -8,15 +8,17 @@ app_license = "mit"
 fixtures = [
     {
         "dt": "Client Script",
-        "filters": [["name", "=", "JOS_Tax_Id_Validador"]]
+        "filters": [["name", "in", ["JOS_Tax_Id_Validador", "Address-City-Sync"]]]
     },
     {
         "dt": "Custom Field",
-        "filters": [["name", "=", "Customer-custom_jos_tax_id_validador"]]
+        "filters": [["name", "in", ["Customer-custom_jos_tax_id_validador", "Address-custom_jos_ecua_cities"]]]
     },
     {
         "dt": "Property Setter",
-        "filters": [["doc_type", "=", "Customer"], ["field_name", "in", ["customer_type", "salutation", "tax_id"]]
+        "filters": [
+            ["doc_type", "in", ["Customer", "Address"]],
+            ["field_name", "in", ["customer_type", "salutation", "tax_id", "country"]]
         ]
     }
 ]

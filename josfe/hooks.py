@@ -9,55 +9,30 @@ fixtures = [
     {
         "dt": "Client Script",
         "filters": [
-            ["name", "in", [
-                "JOS_Tax_Id_Validador", 
-                "Address-City-Sync",
-                "Customer - Sync Nombre Cliente"
-            ]]
+            ["module", "=", "ClienteSetup"]
         ]
     },
+
     {
         "dt": "Custom Field",
         "filters": [
-            ["name", "in", [
-                "Customer-custom_tab_9",
-                "Customer-custom_jos_tax_id_validador", 
-                "Customer-custom_jos_city2",
-                "Customer-custom_jos_direccion",
-                "Customer-custom_jos_country",
-                "Customer-custom_jos_nombre_cliente",
-                "Customer-custom_jos_emails",
-                "Customer-custom_jos_telefonos",
-                "Address-custom_jos_ecua_cities"
-            ]]
+            ["module", "=", "ClienteSetup"]
         ]
     },
+
     {
         "dt": "Property Setter",
         "filters": [
-            ["doc_type", "in", [
-                "Customer", "Address"
-            ]],
-            ["name", "in", [
-                "Address-country-default",
-                "Customer-customer_type-allow_in_quick_entry",
-                "Customer-salutation-depends_on",
-                "Customer-salutation-hidden",
-                "Customer-customer_type-read_only",
-                "Customer-main-quick_entry",
-            ]]
+            ["module", "=", "ClienteSetup"]
         ]
     }
 ]
 
-
-
-
 # Server Scripts
 doc_events = {
     "Customer": {
-        "validate": "josfe.custom.Customer.Tax_Id_Validador.validate_tax_id",
-        "after_insert": "josfe.custom.Customer.Create_Quick_Customer.create_linked_address"
+        "validate": "josfe.clientesetup.Tax_Id_Validador.validate_tax_id",
+        "after_insert": "josfe.clientesetup.Create_Quick_Customer.create_linked_address"
     }
 }
 

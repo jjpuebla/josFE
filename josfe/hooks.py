@@ -9,30 +9,41 @@ fixtures = [
     {
         "dt": "Client Script",
         "filters": [
-            ["module", "=", "ClienteSetup"]
+            ["module", "in", ["ClienteSetup", "my_data"]]
         ]
     },
 
     {
         "dt": "Custom Field",
         "filters": [
-            ["module", "=", "ClienteSetup"]
+            ["module", "in", ["ClienteSetup", "my_data"]]
         ]
     },
 
     {
         "dt": "Property Setter",
         "filters": [
-            ["module", "=", "ClienteSetup"]
+            ["module", "in", ["ClienteSetup", "my_data"]]
+        ]
+    },
+    {
+        "dt": "DocType",
+        "filters": [
+            ["module", "in", ["ClienteSetup", "my_data"]]
         ]
     }
+
 ]
+
 
 # Server Scripts
 doc_events = {
     "Customer": {
         "validate": "josfe.clientesetup.Tax_Id_Validador.validate_tax_id",
         "after_insert": "josfe.clientesetup.Create_Quick_Customer.create_linked_address"
+    },
+    "Company": {
+        "before_insert": "josfe.my_data.company_hooks.handle_establecimientos"
     }
 }
 

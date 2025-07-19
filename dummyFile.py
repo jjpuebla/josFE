@@ -1,131 +1,105 @@
-[
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "naming_series",
-  "is_system_generated": 0,
-  "modified": "2025-04-09 22:00:23.834003",
-  "module": null,
-  "name": "Customer-naming_series-reqd",
-  "property": "reqd",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "0"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "naming_series",
-  "is_system_generated": 0,
-  "modified": "2025-04-09 22:00:24.112596",
-  "module": null,
-  "name": "Customer-naming_series-hidden",
-  "property": "hidden",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "1"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocType",
-  "field_name": null,
-  "is_system_generated": 0,
-  "modified": "2025-07-14 01:47:48.362390",
-  "module": null,
-  "name": "Customer-main-field_order",
-  "property": "field_order",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "[\"basic_info\", \"naming_series\", \"salutation\", \"customer_name\", \"custom_jos_tax_id_validador\", \"customer_type\", \"customer_group\", \"column_break0\", \"territory\", \"gender\", \"lead_name\", \"opportunity_name\", \"prospect_name\", \"account_manager\", \"image\", \"defaults_tab\", \"default_currency\", \"default_bank_account\", \"column_break_14\", \"default_price_list\", \"internal_customer_section\", \"is_internal_customer\", \"represents_company\", \"column_break_70\", \"companies\", \"more_info\", \"market_segment\", \"industry\", \"customer_pos_id\", \"website\", \"language\", \"column_break_45\", \"customer_details\", \"dashboard_tab\", \"contact_and_address_tab\", \"address_contacts\", \"address_html\", \"column_break1\", \"contact_html\", \"primary_address_and_contact_detail\", \"column_break_26\", \"customer_primary_address\", \"primary_address\", \"column_break_nwor\", \"customer_primary_contact\", \"mobile_no\", \"email_id\", \"tax_tab\", \"taxation_section\", \"tax_id\", \"column_break_21\", \"tax_category\", \"tax_withholding_category\", \"accounting_tab\", \"credit_limit_section\", \"payment_terms\", \"credit_limits\", \"default_receivable_accounts\", \"accounts\", \"loyalty_points_tab\", \"loyalty_program\", \"column_break_54\", \"loyalty_program_tier\", \"sales_team_tab\", \"sales_team\", \"sales_team_section\", \"default_sales_partner\", \"column_break_66\", \"default_commission_rate\", \"settings_tab\", \"so_required\", \"dn_required\", \"exempt_from_sales_tax\", \"column_break_53\", \"is_frozen\", \"disabled\", \"portal_users_tab\", \"portal_users\"]"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "customer_type",
-  "is_system_generated": 0,
-  "modified": "2025-07-14 01:21:39.230226",
-  "module": null,
-  "name": "Customer-customer_type-read_only",
-  "property": "read_only",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "1"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "salutation",
-  "is_system_generated": 0,
-  "modified": "2025-07-14 02:00:54.735512",
-  "module": null,
-  "name": "Customer-salutation-hidden",
-  "property": "hidden",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "1"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "salutation",
-  "is_system_generated": 0,
-  "modified": "2025-07-14 02:08:57.114954",
-  "module": null,
-  "name": "Customer-salutation-depends_on",
-  "property": "depends_on",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "//eval:doc.customer_type!='Company'"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "customer_type",
-  "is_system_generated": 0,
-  "modified": "2025-07-14 02:14:30.955377",
-  "module": null,
-  "name": "Customer-customer_type-allow_in_quick_entry",
-  "property": "allow_in_quick_entry",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "1"
- },
+/**
+ * Company Form - Naming Series + Warehouse Address Script
+ * -------------------------------------------------------
+ * This script enhances the custom child table `Jos_Establecimientos`
+ * (fieldname: `custom_jos_tabla_estab`) inside the `Company` doctype.
+ * 
+ * Features:
+ * 1. Dynamically loads naming series options (from the backend)
+ * 2. Automatically assigns the first address linked to the selected warehouse
+ * 
+ * Dependencies:
+ * - Server methods defined in `josfe.api.naming_series`:
+ *    - get_naming_series_options_for(doctype)
+ *    - get_address_for_warehouse(warehouse)
+ */
 
- {
-  "doctype": "Property Setter",
-  "doc_type": "Address",
-  "field_name": "city",
-  "property": "reqd",
-  "property_type": "Check",
-  "value": "0"
- },
- {
-  "doctype": "Property Setter",
-  "doc_type": "Address",
-  "field_name": "city",
-  "property": "hidden",
-  "property_type": "Check",
-  "value": "1"
- }
-]
+// Trigger when the Company form loads
+frappe.ui.form.on('Company', {
+  onload: function(frm) {
+    // When the user clicks on the child table,
+    // refresh naming series options for all rows
+    frm.fields_dict.custom_jos_tabla_estab.grid.wrapper.on('click', function () {
+    console.log("Clicked on child table wrapper");  // ✅ add this
+      set_series_on_all_rows(frm);
+    });
+  }
+});
+
+// Trigger logic when warehouse is selected in a child row
+frappe.ui.form.on('Jos_Establecimientos', {
+  jos_warehouse: function(frm, cdt, cdn) {
+    // Set naming series options dynamically
+    set_series_options(frm, cdt, cdn);
+
+    // Automatically assign address linked to the selected warehouse
+    set_address_for_warehouse(frm, cdt, cdn);
+  }
+});
+
+/**
+ * Loop through all rows in the child table and apply naming series options.
+ */
+function set_series_on_all_rows(frm) {
+  let rows = frm.doc.custom_jos_tabla_estab || [];
+  for (let i = 0; i < rows.length; i++) {
+    set_series_options(frm, "Jos_Establecimientos", rows[i].name);
+  }
+}
+
+/**
+ * Call backend to fetch naming series options for "Sales Invoice"
+ * and apply them to the jos_naming_series select field.
+ */
+function set_series_options(frm, cdt, cdn) {
+  frappe.call({
+    method: "josfe.api.naming_series.get_naming_series_options_for",
+    args: { doctype: "Sales Invoice" },
+    callback: function(res) {
+      if (!res.message) return;
+
+      const options = res.message.map(r => r.name).join("\n");
+
+      const grid = frm.fields_dict.custom_jos_tabla_estab.grid;
+      const row = frappe.get_doc(cdt, cdn);
+      const grid_row = grid.grid_rows_by_docname[row.name];
+
+      // Delay execution to ensure row is fully rendered
+      setTimeout(() => {
+        if (grid_row && grid_row.fields_dict && grid_row.fields_dict.jos_naming_series) {
+          const field = grid_row.fields_dict.jos_naming_series;
+          field.df.options = options;
+          field.refresh();
+          console.log("Dropdown options updated for row:", row.name);
+        } else {
+          console.warn("Field jos_naming_series not found in rendered grid row:", row.name);
+        }
+      }, 100); // wait 100ms to let UI render
+    }
+  });
+}
+/**
+ * Call backend to fetch the first Address linked to the selected Warehouse.
+ * If found, populate the jos_address field.
+ */
+function set_address_for_warehouse(frm, cdt, cdn) {
+  const row = locals[cdt][cdn];
+  if (!row.jos_warehouse) return;
+
+  // Reset current address field
+  frappe.model.set_value(cdt, cdn, "jos_address", null);
+
+  frappe.call({
+    method: "josfe.api.naming_series.get_address_for_warehouse",
+    args: {
+      warehouse: row.jos_warehouse
+    },
+    callback: function(res) {
+      if (res.message) {
+        frappe.model.set_value(cdt, cdn, "jos_address", res.message);
+      } else {
+        frappe.msgprint(`No address found for warehouse ${row.jos_warehouse}`);
+      }
+    }
+  });
+}

@@ -16,3 +16,25 @@ def get_naming_series_options_for(doctype):
             return []
     except Exception as e:
         frappe.throw(_("Error fetching naming series: {0}").format(str(e)))
+
+@frappe.whitelist()
+def get_address_for_warehouse(warehouse):
+    try:
+        # Get the linked address
+        address_link = frappe.db.get_value(
+            "Dynamic Link",
+            {
+                "link_doctype": "Warehouse",
+                "link_name": warehouse,
+                "parenttype": "Address"
+            },
+            "parent"
+        )
+
+        if not address_link:
+            return ""
+
+        return frappe.db.get_value("Address", address_link, "address_line1") or ""
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "get_address_for_warehouse")
+        return ""

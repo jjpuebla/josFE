@@ -19,6 +19,11 @@ def convertir_y_validar(company_name, p12_password):
     pem_output_path = frappe.get_site_path("private", "files", "actualpem.pem")
 
     # Convertir usando openssl con clave de salida
+        # ------ Set OpenSSL configuration to legacy. openssl legacy is at: mode apps/josfe/josfe/openssl/openssl_legacy.cnf------ 
+    env = os.environ.copy()
+    env["OPENSSL_CONF"] = frappe.get_app_path("josfe", "openssl", "openssl_legacy.cnf")
+        # ------ Set OpenSSL configuration to legacy mode ------ 
+
     result = subprocess.run([
         "openssl", "pkcs12",
         "-in", site_path,

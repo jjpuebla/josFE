@@ -1,53 +1,61 @@
-# server_side_tax_id_validation.py
-
 import frappe
 from frappe import _
 
-def validate_tax_id(doc, method):
-    raw_id = (doc.get("custom_jos_tax_id_validador") or "").strip().upper()
+def validate_and_assign_tax_id(doc, source_field, assign_tax_id=True, assign_customer_type=False):
+    raw_id = (doc.get(source_field) or "").strip().upper()
 
     if not raw_id:
         frappe.throw(_("Identificación Fiscal es obligatoria."))
 
-    # Consumidor Final (valid dummy RUC)
+    # Consumidor Final
     if raw_id == "9999999999999":
-        doc.tax_id = raw_id
-        doc.customer_type = "Individual"
+        if assign_tax_id:
+            doc.tax_id = raw_id
+        if assign_customer_type:
+            set_entity_type(doc, "Individual")
         return
 
     # Pasaporte extranjero
     if raw_id.startswith("P-"):
-        doc.tax_id = raw_id[2:]
-        doc.customer_type = "Individual"
+        passport_value = raw_id[2:]
+        if assign_tax_id:
+            doc.tax_id = passport_value
+        if assign_customer_type:
+            set_entity_type(doc, "Individual")
         return
 
-    # Validate digit structure
     if not raw_id.isdigit() or len(raw_id) not in [10, 13]:
         frappe.throw(_("La Identificación Fiscal debe tener 10 o 13 dígitos, o iniciar con 'P-' para pasaportes."))
 
-    # Validate Ecuadorian ID
     if not is_valid_ec_tax_id(raw_id):
         frappe.throw(_("Identificación Fiscal inválida (ni Cédula ni RUC)."))
 
-    # Check for duplicate Tax ID
-    if frappe.db.exists("Customer", {
-        "custom_jos_tax_id_validador": raw_id,
-        "name": ("!=", doc.name)
-    }):
-        frappe.throw(_("Ya existe un cliente con la misma Identificación Fiscal."))
+    if frappe.db.exists(doc.doctype, {source_field: raw_id, "name": ("!=", doc.name)}):
+        frappe.throw(_("Ya existe un {0} con la misma Identificación Fiscal.").format(doc.doctype))
 
-    # Assign validated Tax ID and Customer Type
-    doc.tax_id = raw_id
-    third_digit = int(raw_id[2])
-    doc.customer_type = "Individual" if third_digit < 6 else "Company"
+    if assign_tax_id:
+        doc.tax_id = raw_id
 
+    if assign_customer_type:
+        third_digit = int(raw_id[2])
+        entity_type = "Individual" if third_digit < 6 else "Company"
+        set_entity_type(doc, entity_type)
+
+def set_entity_type(doc, value):
+    if doc.doctype == "Customer":
+        doc.customer_type = value
+    elif doc.doctype == "Supplier":
+        doc.supplier_type = value
 
 def is_valid_ec_tax_id(id):
     province = int(id[:2])
     if province < 1 or province > 24:
         return False
 
-    third = int(id[2])
+    try:
+        third = int(id[2])
+    except (IndexError, ValueError):
+        frappe.throw(_("La Identificación Fiscal no tiene un formato válido."))
 
     if third < 6:
         return validate_cedula(id[:10])

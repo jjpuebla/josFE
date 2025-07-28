@@ -9,41 +9,64 @@ fixtures = [
     {
         "dt": "Client Script",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras"]]
         ]
     },
 
     {
         "dt": "Custom Field",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras"]]
         ]
     },
 
     {
         "dt": "Property Setter",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras"]]
         ]
     },
     {
         "dt": "DocType",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras"]]
+        ]
+    },
+    {
+        "dt": "DocField",
+        "filters": [
+            ["parent", "=", "Contact Phone"],
         ]
     }
 
 ]
 
-
 # Server Scripts
+import josfe.api.contact_hooks
+# from josfe.api.contact_hooks import refresh_html
+
 doc_events = {
+    "Contact": {
+        "on_update": "josfe.api.contact_hooks.refresh_html",
+        "validate": "josfe.api.phone_validator.validate_contact_phones",
+    },
     "Customer": {
-        "validate": "josfe.clientesetup.Tax_Id_Validador.validate_tax_id",
-        "after_insert": "josfe.clientesetup.Create_Quick_Customer.create_linked_address"
+        "validate": [
+            "josfe.clientesetup.Tax_Id_Validador.validate",
+            "josfe.api.phone_validator.validate_entity_phones"
+        ],
+        "on_update": "josfe.api.create_quick_entity.sync_customer_supplier"
+    },
+    "Supplier": {
+        "validate": [
+            "josfe.compras.validadores_supplier.validate_tax_id",
+            "josfe.api.phone_validator.validate_entity_phones"
+        ],
+        "on_update": "josfe.api.create_quick_entity.sync_customer_supplier"
     },
     "Company": {
-        "before_insert": "josfe.my_data.company_hooks.handle_establecimientos"
+        "validate": "josfe.my_data.validadores_company.validate_tax_id"
+    # }
     }
 }
 

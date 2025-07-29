@@ -1,63 +1,61 @@
 import frappe
 
 def sync_customer_supplier(doc, method):
+	# frappe.msgprint("✅ sync_customer_supplier called")
+
 	if doc.doctype not in ["Customer", "Supplier"]:
 		return
 
-	# Determine dynamic labels
 	is_customer = doc.doctype == "Customer"
 	full_name = doc.customer_name if is_customer else doc.supplier_name
 	link_doctype = doc.doctype
 	link_name = doc.name
+	prefix = "Clte" if is_customer else "Prov"
 
-	# === 1. MAIN ADDRESS SYNC ===
+	# === 1. MAIN ADDRESS ===
 	city = doc.get("custom_jos_city2")
 	dirc = doc.get("custom_jos_direccion")
 	country = doc.get("custom_jos_country")
-	main_address_title = f"Main Address for {full_name}"
+	main_address_title = f"Main Dir. para {prefix}-{link_name}"
+	# frappe.msgprint(f"📦 Address fields → City: {city}, Dir: {dirc}, Country: {country}")
 
 	if city and dirc and country:
-		# Try to find the main address by title
 		addr_name = frappe.db.get_value("Address", {"address_title": main_address_title})
 		if addr_name:
 			addr = frappe.get_doc("Address", addr_name)
+			# frappe.msgprint("🛠️ Updating existing address")
 		else:
 			addr = frappe.new_doc("Address")
 			addr.address_title = main_address_title
 			addr.address_type = "Billing"
 			addr.is_primary_address = 1
-			addr.links = []
-			addr.append("links", {
-				"link_doctype": link_doctype,
-				"link_name": link_name
-			})
+			addr.append("links", {"link_doctype": link_doctype, "link_name": link_name})
+			# frappe.msgprint("➕ Creating new address")
 
 		addr.address_line1 = dirc
 		addr.city = city
 		addr.country = country
 		addr.is_primary_address = 1
-		addr.save(ignore_permissions=True)
+		addr.flags.ignore_permissions = True
+		addr.save()
 
-	# === 2. MAIN CONTACT SYNC (Customer + Supplier) ===
+	# === 2. MAIN CONTACT ===
 	emails = doc.get("custom_jos_emails", [])
 	phones = doc.get("custom_jos_telefonos", [])
-	main_contact_name = f"Main Contact for {full_name}"
+	main_contact_name = f"Main Contact {prefix}-{link_name}"
+	# frappe.msgprint(f"📞 Contact data → Emails: {len(emails)}, Phones: {len(phones)}")
 
-	# Try to find the contact by name
 	contact_name = frappe.db.get_value("Contact", {"first_name": main_contact_name})
 	if contact_name:
 		contact = frappe.get_doc("Contact", contact_name)
+		# frappe.msgprint("🛠️ Updating existing contact")
 	else:
 		contact = frappe.new_doc("Contact")
 		contact.first_name = main_contact_name
 		contact.is_primary_contact = 1
-		contact.links = []
-		contact.append("links", {
-			"link_doctype": link_doctype,
-			"link_name": link_name
-		})
+		contact.append("links", {"link_doctype": link_doctype, "link_name": link_name})
+		# frappe.msgprint("➕ Creating new contact")
 
-	# Replace emails and phones
 	contact.email_ids = []
 	contact.phone_nos = []
 
@@ -68,19 +66,19 @@ def sync_customer_supplier(doc, method):
 				"is_primary": 1 if i == 0 else 0
 			})
 
-	# Ojo Aqui pusimos la lógica para que se syncronice la extensión y whatsapp 
 	for i, row in enumerate(phones):
 		if hasattr(row, "phone") and row.phone:
 			contact.append("phone_nos", {
 				"phone": row.phone,
 				"is_primary_phone": 1 if i == 0 else 0,
-				"jos_phone_ext": getattr(row, "jos_phone_ext", None), #extension
-				"jos_whatsapp": getattr(row, "jos_whatsapp", 0) #whatsapp
+				"jos_phone_ext": getattr(row, "jos_phone_ext", None),
+				"jos_whatsapp": getattr(row, "jos_whatsapp", 0)
 			})
 
-	contact.save(ignore_permissions=True)
+	contact.flags.ignore_permissions = True
+	contact.save()
 
-	# === 3. Reverse Sync (Main Address → Custom Fields) ===
+	# === 3. SYNC BACK TO CUSTOM FIELDS ===
 	addr_name = frappe.db.get_value("Address", {"address_title": main_address_title})
 	if addr_name:
 		addr = frappe.get_doc("Address", addr_name)
@@ -95,4 +93,5 @@ def sync_customer_supplier(doc, method):
 			doc.custom_jos_country = addr.country
 			updated = True
 		if updated:
+			# frappe.msgprint("🔁 Syncing address back to custom fields")
 			doc.db_update()

@@ -43,7 +43,6 @@ fixtures = [
 
 # Server Scripts
 import josfe.api.contact_hooks
-# from josfe.api.contact_hooks import refresh_html
 
 doc_events = {
     "Contact": {
@@ -55,22 +54,24 @@ doc_events = {
             "josfe.clientesetup.Tax_Id_Validador.validate",
             "josfe.api.phone_validator.validate_entity_phones"
         ],
-        "on_update": "josfe.api.create_quick_entity.sync_customer_supplier"
+        "on_update": "josfe.api.create_quick_entity.sync_customer_supplier",
+        "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier"
     },
     "Supplier": {
         "validate": [
             "josfe.compras.validadores_supplier.validate_tax_id",
             "josfe.api.phone_validator.validate_entity_phones"
         ],
-        "on_update": "josfe.api.create_quick_entity.sync_customer_supplier"
+        "on_update": "josfe.api.create_quick_entity.sync_customer_supplier",
+        "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier"
     },
     "Company": {
         "validate": "josfe.my_data.validadores_company.validate_tax_id"
-    # }
     }
 }
 
 
+app_include_js = "/assets/josfe/js/phone_utils.js"
 
 # Apps
 # ------------------

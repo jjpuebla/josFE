@@ -31,6 +31,16 @@ def validate_entity_phones(doc, method):
         else:
             frappe.throw(_("❌ Teléfono inválido en fila {0}: formato no reconocido.").format(row.idx))
 
+
+
+
+        # ✅ WhatsApp Validation Rule
+        if not phone.startswith("09") and row.jos_whatsapp:
+            frappe.throw(_("❌ WhatsApp no puede estar marcado en fila {0} si el número no empieza con 09.").format(row.idx))
+
+
+
+
 def validate_contact_phones(doc, method):
     if not hasattr(doc, "phone_nos"):
         return

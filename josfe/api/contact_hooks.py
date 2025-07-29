@@ -1,5 +1,3 @@
-# josfe/hooks22/contact_hooks.py
-
 import frappe
 
 def refresh_html(doc, method):

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "1711211516",
+    "doctype": "Customer",
+    "valid": false,
+    "label": "short"
+  },
+  {
+    "id": "P-AB1234567",
+    "doctype": "Customer",
+    "valid": true,
+    "label": "passport"
+  },
+  {
+    "id": "9999999999999",
+    "doctype": "Customer",
+    "valid": true,
+    "label": "consumidor_final"
+  },
+  {
+    "id": "1710034065001",
+    "doctype": "Customer",
+    "valid": true,
+    "label": "ruc_natural_example"
+  },
+  {
+    "id": "1790012345001",
+    "doctype": "Supplier",
+    "valid": true,
+    "label": "ruc_privada_example"
+  },
+  {
+    "id": "1760001550001",
+    "doctype": "Supplier",
+    "valid": true,
+    "label": "ruc_publica_example"
+  },
+  {
+    "id": "1711211516001",
+    "doctype": "Customer",
+    "valid": false,
+    "label": "bad_check_digit"
+  }
+]

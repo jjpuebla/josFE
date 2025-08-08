@@ -1,3 +1,4 @@
 {
+  "js/loader.js": "public/js/loader.js",
   "js/phone_utils.js": "public/js/phone_utils.js"
 }

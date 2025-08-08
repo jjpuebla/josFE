@@ -37,6 +37,10 @@ fixtures = [
         "filters": [
             ["parent", "=", "Contact Phone"],
         ]
+    },
+        {
+        "dt": "Customize Form",
+        "filters": [["doc_type", "=", "Customer"]]
     }
 
 ]
@@ -47,31 +51,39 @@ import josfe.api.contact_hooks
 doc_events = {
     "Contact": {
         "on_update": "josfe.api.contact_hooks.refresh_html",
-        "validate": "josfe.api.phone_validator.validate_contact_phones",
+        "validate": "josfe.api.phone_validator.validate_contact_phones"
     },
     "Customer": {
         "validate": [
-            "josfe.clientesetup.Tax_Id_Validador.validate",
-            "josfe.api.phone_validator.validate_entity_phones"
+            "josfe.clientesetup.validadores_customer.validate_tax_id",
+            "josfe.api.phone_validator.validate_entity_phones",
+            "josfe.api.tax_validator_js.prevent_tax_id_change"
         ],
         "on_update": "josfe.api.create_quick_entity.sync_customer_supplier",
-        "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier"
+        "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier",
+        "autoname": "josfe.overrides.customer_naming.autoname_customer"
     },
     "Supplier": {
         "validate": [
             "josfe.compras.validadores_supplier.validate_tax_id",
-            "josfe.api.phone_validator.validate_entity_phones"
+            "josfe.api.phone_validator.validate_entity_phones",
+            "josfe.api.tax_validator_js.prevent_tax_id_change"
         ],
         "on_update": "josfe.api.create_quick_entity.sync_customer_supplier",
-        "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier"
+        "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier",
+        "autoname": "josfe.overrides.supplier_naming.autoname_supplier"
+
     },
     "Company": {
-        "validate": "josfe.my_data.validadores_company.validate_tax_id"
+        "validate": "josfe.my_data.validadores_company.validate_tax_id",
+        "validate": "josfe.api.tax_validator_js.prevent_tax_id_change"
     }
 }
 
+# js files:
+app_include_js = "/assets/josfe/js/loader.js"
 
-app_include_js = "/assets/josfe/js/phone_utils.js"
+
 
 # Apps
 # ------------------

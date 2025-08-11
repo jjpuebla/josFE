@@ -33,14 +33,17 @@ function waitForDoctypeAndInject() {
   const scriptMap = {
     Customer: [
       "/assets/josfe/js/phone_utils.js",
-      "/assets/josfe/js/tax_id_utils.js"
+      "/assets/josfe/js/tax_id_utils.js",
+      "/assets/josfe/js/contact_html_enhancer.js"
     ],
     Supplier: [
       "/assets/josfe/js/phone_utils.js",
-      "/assets/josfe/js/tax_id_utils.js"
-    ],
+      "/assets/josfe/js/tax_id_utils.js",
+      "/assets/josfe/js/contact_html_enhancer.js"
+   ],
     Contact: [
-      "/assets/josfe/js/phone_utils.js"
+      "/assets/josfe/js/phone_utils.js",
+      "/assets/josfe/js/contact_html_enhancer.js"
     ],
     Company: [
       "/assets/josfe/js/tax_id_utils.js"
@@ -50,7 +53,7 @@ function waitForDoctypeAndInject() {
   const scripts = scriptMap[doctype] || [];
 
   if (scripts.length === 0) {
-    console.log("⚠️ No scripts to load for Doctype:", doctype);
+    // console.log("⚠️ No scripts to load for Doctype:", doctype);
     return;
   }
 

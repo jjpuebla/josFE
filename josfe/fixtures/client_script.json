@@ -246,10 +246,10 @@
   "doctype": "Client Script",
   "dt": "Contact",
   "enabled": 1,
-  "modified": "2025-08-11 00:25:29.439844",
+  "modified": "2025-08-11 09:40:59.453662",
   "module": "My_Data",
   "name": "Jos_Con_Phone+Ext+WhApp_HTML",
-  "script": "// Contact — after_save: refresh the currently open linked Customer/Supplier form\r\n// and re-run the enhancement once the contact_html is rendered.\r\nfrappe.ui.form.on('Contact', {\r\n  after_save(frm) {\r\n    const route = frappe.get_route(); // [\"Form\", \"Customer\", \"CUST-0001\"] or [\"Form\", \"Supplier\", \"SUP-0001\"]\r\n\r\n    (frm.doc.links || []).forEach(link => {\r\n      const dt = link.link_doctype;\r\n      const dn = link.link_name;\r\n\r\n      if (![\"Customer\", \"Supplier\"].includes(dt)) return;\r\n\r\n      // Only reload if that linked doc is actually the one currently open in the UI\r\n      const isOpenOnScreen = Array.isArray(route) && route[0] === \"Form\" && route[1] === dt && route[2] === dn;\r\n      if (!isOpenOnScreen) return;\r\n\r\n      // Reload the open form so contact_html gets rebuilt, then enhance once .address-box appears\r\n      cur_frm.reload_doc().then(() => {\r\n        waitForContactBoxAndRun(() => {\r\n          // IMPORTANT: reuse your existing enhancer\r\n          // It must be globally available (defined once) so we can call it here.\r\n          enhanceContactHTML(cur_frm, dt);\r\n        });\r\n      });\r\n    });\r\n  }\r\n});\r\n",
+  "script": "frappe.ui.form.on('Contact', {\r\n  after_save(frm) {\r\n    (frm.doc.links || []).forEach(link => {\r\n      if (link.link_doctype === 'Customer') {\r\n        const customerName = link.link_name;\r\n        const openCustomerForm = frappe.container.page.frm;\r\n\r\n        // If the linked customer is currently open, reload it to refresh the HTML\r\n        if (openCustomerForm && openCustomerForm.doctype === 'Customer' && openCustomerForm.doc.name === customerName) {\r\n          openCustomerForm.reload_doc();\r\n        }\r\n      }\r\n    });\r\n  }\r\n});\r\n",
   "view": "Form"
  },
  {

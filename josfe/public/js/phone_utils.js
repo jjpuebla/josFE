@@ -1,4 +1,4 @@
-console.log("✅ josfe/phone_utils.js loaded (wrapper normalized, no setTimeout)");
+// console.log("✅ josfe/phone_utils.js loaded (wrapper normalized, no setTimeout)");
 
 (function () {
   // Keep track of which DOM nodes we've bound to
@@ -153,7 +153,7 @@ console.log("✅ josfe/phone_utils.js loaded (wrapper normalized, no setTimeout)
     }
     if (BOUND.has(node)) return true;
 
-    console.log("📞 Binding phone mask on grid:", grid.df?.fieldname || "(unknown)");
+    // console.log("📞 Binding phone mask on grid:", grid.df?.fieldname || "(unknown)");
     attachDelegates(node);
     observeGrid(node);
     BOUND.add(node);

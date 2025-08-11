@@ -28,15 +28,24 @@ frappe.after_ajax(() => {
   const { source, target } = config[frm.doctype] || {};
   if (!source || !target || !frm.fields_dict[source]) return;
 
+  // Force-show helper (runtime only)
+  const forceShowTax = () => {
+    const df = frappe.meta.get_docfield(frm.doctype, target);
+    if (df) df.hidden = 0;                  // unhide at meta level (runtime)
+    frm.set_df_property(target, "hidden", 0); // unhide on the form
+    frm.toggle_display(target, true);         // make sure it's visible
+  };
+
   // ✅ Reset background when opening a new form
   frappe.ui.form.on(frm.doctype, {
     refresh(frm) {
+      forceShowTax();
       if (frm.is_new()) {
         const $input = frm.fields_dict[source]?.$wrapper?.find("input");
         if ($input) $input.css("background-color", "");
         // Ensure fields are editable for new records
         frm.set_df_property(source, "read_only", 0);
-        frm.set_df_property(target, "read_only", 0);
+        // frm.set_df_property(target, "read_only", 0);
       }
     },
     
@@ -45,6 +54,7 @@ frappe.after_ajax(() => {
       if (frm.doc[source] && frm.doc[target]) {
         frm.set_df_property(source, "read_only", 1);
         frm.set_df_property(target, "read_only", 1);
+        forceShowTax();
         console.log("🔒 Fields locked after save");
       }
     }
@@ -59,11 +69,13 @@ frappe.after_ajax(() => {
 
   // 🚀 Trigger immediately on load
   validateAndSync(frm);
+  forceShowTax();
 
   // 🔒 Lock if tax_id was previously saved (only for existing records)
   if (!frm.is_new() && frm.doc[source]) {
     frm.set_df_property(source, "read_only", 1);
     frm.set_df_property(target, "read_only", 1);
+    forceShowTax();
   }
 
   function validateAndSync(frm) {

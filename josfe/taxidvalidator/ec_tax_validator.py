@@ -97,3 +97,30 @@ def validate_ruc_private(ruc):
     total = sum(d * c for d, c in zip(digits[:9], coeffs))
     check = 11 - (total % 11)
     return digits[9] == (0 if check == 11 else check)
+
+def _norm(v):
+    return (v or "").strip().upper()
+
+def enforce_tax_id_immutability(doc, method=None):
+    # New doc? Nothing to enforce.
+    if doc.is_new():
+        return
+
+    # Reload old to compare
+    old_doc = frappe.get_doc(doc.doctype, doc.name)
+
+    # Map your custom field per Doctype
+    custom_field_map = {
+        "Customer": "custom_jos_tax_id_validador",
+        "Supplier": "custom_jos_ruc_supplier",
+        "Company":  "custom_jos_ruc",
+    }
+    custom_field = custom_field_map.get(doc.doctype)
+
+    # Core tax_id cannot change after save
+    if _norm(old_doc.tax_id) and _norm(doc.tax_id) != _norm(old_doc.tax_id):
+        frappe.throw(_("El campo Tax ID no puede ser modificado una vez guardado."))
+
+    # Custom tax field cannot change after save
+    if custom_field and _norm(old_doc.get(custom_field)) and _norm(doc.get(custom_field)) != _norm(old_doc.get(custom_field)):
+        frappe.throw(_("El campo de identificación tributaria no puede ser modificado."))

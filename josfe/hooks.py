@@ -57,7 +57,7 @@ doc_events = {
         "validate": [
             "josfe.clientesetup.validadores_customer.validate_tax_id",
             "josfe.api.phone_validator.validate_entity_phones",
-            "josfe.api.tax_validator_js.prevent_tax_id_change"
+            "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability"
         ],
         "on_update": "josfe.api.create_quick_entity.sync_customer_supplier",
         "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier",
@@ -67,7 +67,7 @@ doc_events = {
         "validate": [
             "josfe.compras.validadores_supplier.validate_tax_id",
             "josfe.api.phone_validator.validate_entity_phones",
-            "josfe.api.tax_validator_js.prevent_tax_id_change"
+            "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability"
         ],
         "on_update": "josfe.api.create_quick_entity.sync_customer_supplier",
         "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier",
@@ -75,8 +75,11 @@ doc_events = {
 
     },
     "Company": {
-        "validate": "josfe.my_data.validadores_company.validate_tax_id",
-        "validate": "josfe.api.tax_validator_js.prevent_tax_id_change"
+        "validate": [
+            "josfe.my_data.validadores_company.validate_tax_id",
+            "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability",
+            "josfe.my_data.validadores_company.sync_company_name"
+        ],
     }
 }
 

@@ -1,47 +1,87 @@
-console.log("✅ phone_utils.js script started");
+console.log("✅ josfe/phone_utils.js loaded (wrapper normalized, no setTimeout)");
 
-// Wait until form is available
-frappe.after_ajax(() => {
-  const frm = cur_frm;
+(function () {
+  // Keep track of which DOM nodes we've bound to
+  const BOUND = new WeakSet();
 
-  if (!frm || !["Customer", "Supplier", "Contact"].includes(frm.doctype)) {
-    console.warn("⚠️ phone_utils.js loaded, but not on a target form");
-    return;
+  // --- Utils --------------------------------------------------------------
+
+  function getWrapperNode(grid) {
+    // Normalize Frappe Grid wrapper to a real DOM Node
+    if (!grid) return null;
+    const w = grid.wrapper;
+
+    // If it's already a DOM element
+    if (w && w.nodeType === 1) return w;
+
+    // jQuery-like objects
+    if (w && typeof w === "object") {
+      if (w[0] && w[0].nodeType === 1) return w[0];
+      if (typeof w.get === "function") {
+        const el = w.get(0);
+        if (el && el.nodeType === 1) return el;
+      }
+    }
+
+    // Some older grid versions also expose .parent or .$wrapper; try them
+    if (grid.$wrapper && grid.$wrapper[0]?.nodeType === 1) return grid.$wrapper[0];
+    if (grid.parent && grid.parent[0]?.nodeType === 1) return grid.parent[0];
+
+    return null;
   }
 
-  console.log("📋 phone_utils.js running for", frm.doctype);
+  function getDynamicMask(digits) {
+    if (digits.startsWith("09")) return "___-___-____"; // EC mobile
+    if (digits.length >= 2 && digits.startsWith("0") && digits[1] >= "2" && digits[1] <= "8")
+      return "___-___-___";                             // EC landline
+    if (digits[0] >= "2" && digits[0] <= "9") return "___-____"; // Intl short
+    return "___-___-____";
+  }
 
-  frappe.provide("josfe");
+  function formatWithMask(digits) {
+    const mask = getDynamicMask(digits);
+    let result = "", i = 0;
+    for (let ch of mask) result += ch === "_" ? (digits[i++] || "_") : ch;
+    return result;
+  }
 
-  josfe.setupPhoneMaskingAndWhatsapp = function (frm) {
-    console.log("📞 Setting up phone masking for", frm.doctype);
-    let grid = null;
-
-    if (frm.fields_dict.custom_jos_telefonos?.grid) {
-      grid = frm.fields_dict.custom_jos_telefonos.grid;
-    } else if (frm.fields_dict.phone_nos?.grid) {
-      grid = frm.fields_dict.phone_nos.grid;
+  function toggleWhatsapp($input, raw) {
+    const isMobile = raw.startsWith("09");
+    const $row = $input.closest(".grid-row");
+    const $wa = $row.find('input[data-fieldname="jos_whatsapp"]');
+    if (!$wa.length) return;
+    if (!isMobile) {
+      $wa.prop("checked", false).prop("disabled", true).css("outline", "2px solid red");
+    } else {
+      $wa.prop("disabled", false).css("outline", "2px solid green");
     }
+  }
 
-    if (!grid?.wrapper) {
-      console.warn("⚠️ Grid or wrapper not found");
-      return;
-    }
+  function initRow($row) {
+    const $input = $row.find('input[data-fieldname="phone"]');
+    if (!$input.length) return;
+    const raw = ($input.val() || "").replace(/\D/g, "");
+    $input.val(formatWithMask(raw));
+    toggleWhatsapp($input, raw);
+  }
 
-    const $wrapper = $(grid.wrapper);
-    console.log("✅ Grid is ready");
+  // --- Binding ------------------------------------------------------------
 
+  function attachDelegates(node) {
+    const $wrapper = $(node);
+
+    // Phone typing
     $wrapper.on("input", 'input[data-fieldname="phone"]', function (e) {
-      const $input = $(e.target);
+      const $inp = $(e.target);
       const raw = e.target.value.replace(/\D/g, "");
       e.target.value = formatWithMask(raw);
-      toggleWhatsapp($input, raw);
+      toggleWhatsapp($inp, raw);
     });
 
     $wrapper.on("focus", 'input[data-fieldname="phone"]', function (e) {
       const raw = e.target.value.replace(/\D/g, "");
       if (!raw) e.target.value = getDynamicMask("");
-      e.target.setSelectionRange(0, 0);
+      try { e.target.setSelectionRange(0, 0); } catch {}
     });
 
     $wrapper.on("blur", 'input[data-fieldname="phone"]', function (e) {
@@ -58,99 +98,92 @@ frappe.after_ajax(() => {
       }
     });
 
-    // WhatsApp toggle logic
+    // WhatsApp gating (must start with 09)
     function validateWhatsappToggle(e, $checkbox) {
       const $row = $checkbox.closest(".grid-row");
-
-      // Always get the phone from the SAME row
       const $phone = $row.find('input[data-fieldname="phone"]');
       const phone = ($phone.val() || "").replace(/\D/g, "");
-      const isValid = phone.startsWith("09");
-
-      if (!isValid) {
+      const ok = phone.startsWith("09");
+      if (!ok) {
         e.preventDefault();
         frappe.msgprint("❌ Solo teléfonos que comienzan con <b>09</b> pueden marcar WhatsApp.");
-        $checkbox.prop("checked", false)
-          .prop("disabled", true)
-          .css("outline", "2px solid red");
+        $checkbox.prop("checked", false).prop("disabled", true).css("outline", "2px solid red");
         return false;
       }
-
       $checkbox.prop("disabled", false).css("outline", "2px solid green");
       return true;
     }
 
     $wrapper.on("click", 'input[data-fieldname="jos_whatsapp"]', function (e) {
-      const $checkbox = $(e.target);
-      const valid = validateWhatsappToggle(e, $checkbox);
-
-      // ❌ Prevent default toggle unless validation passes
-      if (!valid) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
+      validateWhatsappToggle(e, $(e.target));
     });
 
     $wrapper.on("keydown", 'input[data-fieldname="jos_whatsapp"]', function (e) {
-      if (e.key === " " || e.key === "Spacebar") {
-        const $checkbox = $(e.target);
-        validateWhatsappToggle(e, $checkbox);
-      }
+      if (e.key === " " || e.key === "Spacebar") validateWhatsappToggle(e, $(e.target));
     });
+  }
 
-    $wrapper.on("focus", 'input[data-fieldname="jos_whatsapp"]', function (e) {
-      $(e.target).css("outline", "none");
-    });
+  function observeGrid(node) {
+    // Initialize existing rows
+    $(node).find(".grid-row").each((_, el) => initRow($(el)));
 
-    // Recheck on extension input
-    $wrapper.on("input", 'input[data-fieldname="jos_phone_ext"]', function (e) {
-      const $row = $(e.target).closest(".grid-row");
-      const $phone = $row.find('input[data-fieldname="phone"]');
-      const raw = ($phone.val() || "").replace(/\D/g, "");
-      toggleWhatsapp($phone, raw);
-    });
-
-    // Initial state for all rows
-    grid.grid_rows.forEach(row => {
-      const $input = $(row.row.wrapper).find('input[data-fieldname="phone"]');
-      const raw = $input.val()?.replace(/\D/g, "") || "";
-      toggleWhatsapp($input, raw);
-    });
-
-    function toggleWhatsapp($input, raw) {
-      const isMobile = raw.startsWith("09");
-      const $row = $input.closest(".grid-row");
-      const $wa = $row.find('input[data-fieldname="jos_whatsapp"]');
-
-      if ($wa.length) {
-        if (!isMobile) {
-          $wa.prop("checked", false)
-            .prop("disabled", true)
-            .css("outline", "2px solid red");
-        } else {
-          $wa.prop("disabled", false)
-            .css("outline", "2px solid green");
+    // Watch for new rows
+    const mo = new MutationObserver(muts => {
+      for (const m of muts) {
+        for (const n of m.addedNodes || []) {
+          if (n.nodeType === 1) {
+            const $n = $(n);
+            if ($n.hasClass("grid-row")) initRow($n);
+            $n.find(".grid-row").each((_, el) => initRow($(el)));
+          }
         }
       }
-    }
+    });
+    mo.observe(node, { childList: true, subtree: true });
 
-    function getDynamicMask(digits) {
-      if (digits.startsWith("09")) return "___-___-____";
-      if (digits.startsWith("0") && digits[1] >= "2" && digits[1] <= "8") return "___-___-___";
-      if (digits[0] >= "2" && digits[0] <= "9") return "___-____";
-      return "___-___-____";
-    }
+    // Save a handle for debugging/cleanup if needed
+    node.__josfe_phone_mo = mo;
+  }
 
-    function formatWithMask(digits) {
-      const mask = getDynamicMask(digits);
-      let result = "", i = 0;
-      for (let char of mask) {
-        result += char === "_" ? digits[i++] || "_" : char;
+  function bindGrid(grid) {
+    const node = getWrapperNode(grid);
+    if (!node) {
+      console.warn("⚠️ phone_utils: grid wrapper is not a DOM node yet, skipping.");
+      return false;
+    }
+    if (BOUND.has(node)) return true;
+
+    console.log("📞 Binding phone mask on grid:", grid.df?.fieldname || "(unknown)");
+    attachDelegates(node);
+    observeGrid(node);
+    BOUND.add(node);
+    return true;
+  }
+
+  function bindForForm(frm) {
+    if (!frm) return;
+    const t1 = frm.fields_dict?.custom_jos_telefonos?.grid; // Customer/Supplier
+    if (t1) bindGrid(t1);
+    const t2 = frm.fields_dict?.phone_nos?.grid;            // Contact
+    if (t2) bindGrid(t2);
+  }
+
+  // Hook into all three doctypes
+  ["Customer", "Supplier", "Contact"].forEach(dt => {
+    frappe.ui.form.on(dt, {
+      onload_post_render(frm) {
+        bindForForm(frm);
+      },
+      refresh(frm) {
+        bindForForm(frm);
       }
-      return result;
-    }
-  };
+    });
+  });
 
-  // 🚀 Trigger it immediately now that we're sure we're on the right form
-  josfe.setupPhoneMaskingAndWhatsapp(frm);
-});
+  // Safety: also try after ajax when landing directly on a form
+  frappe.after_ajax(() => {
+    if (window.cur_frm && ["Customer", "Supplier", "Contact"].includes(cur_frm.doctype)) {
+      bindForForm(cur_frm);
+    }
+  });
+})();

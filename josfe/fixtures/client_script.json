@@ -169,7 +169,7 @@
   "doctype": "Client Script",
   "dt": "Contact",
   "enabled": 0,
-  "modified": "2025-07-28 15:34:35.496664",
+  "modified": "2025-08-10 23:27:38.955013",
   "module": "My_Data",
   "name": "Jos_Mascara_Telefono_Contacts",
   "script": "frappe.ui.form.on('Contact', {\r\n    refresh(frm) {\r\n        setTimeout(() => {\r\n            const grid = frm.fields_dict.phone_nos?.grid;\r\n            \r\n            // Enable/disable WhatsApp checkbox based on phone number\r\n            grid.wrapper.on('change', 'input[data-fieldname=\"phone\"]', function (e) {\r\n              const $row = $(e.target).closest('.grid-row');\r\n              const phone = e.target.value.replace(/\\D/g, '');\r\n              const startsWith09 = phone.startsWith('09');\r\n              const $wa = $row.find('input[data-fieldname=\"jos_whatsapp\"]');\r\n            \r\n              if ($wa.length) {\r\n                $wa.prop('disabled', !startsWith09);\r\n                if (!startsWith09) $wa.prop('checked', false);\r\n              }\r\n            });\r\n\r\n            if (!grid) return;\r\n\r\n            // Apply behavior for input\r\n            grid.wrapper.on('input', 'input[data-fieldname=\"phone\"]', function (e) {\r\n                let raw = e.target.value.replace(/\\D/g, '');\r\n                e.target.value = formatWithMask(raw);\r\n            });\r\n\r\n            grid.wrapper.on('focus', 'input[data-fieldname=\"phone\"]', function (e) {\r\n                const raw = e.target.value.replace(/\\D/g, '');\r\n                if (!raw) {\r\n                    e.target.value = getDynamicMask('');\r\n                }\r\n                setTimeout(() => {\r\n                    e.target.setSelectionRange(0, 0);\r\n                }, 0);\r\n            });\r\n\r\n            grid.wrapper.on('blur', 'input[data-fieldname=\"phone\"]', function (e) {\r\n                const val = e.target.value.replace(/[-_]/g, '').trim();\r\n                if (!val) {\r\n                    e.target.value = '';\r\n                }\r\n            });\r\n\r\n            grid.wrapper.on('keydown', 'input[data-fieldname=\"phone\"]', function (e) {\r\n                if (e.key === 'Backspace') {\r\n                    e.preventDefault();\r\n                    let raw = e.target.value.replace(/\\D/g, '');\r\n                    raw = raw.slice(0, -1);\r\n                    e.target.value = formatWithMask(raw);\r\n                }\r\n            });\r\n\r\n            function getDynamicMask(digits) {\r\n                if (digits.startsWith('09')) return '___-___-____';\r\n                if (digits.length >= 2 && digits.startsWith('0') && digits[1] >= '2' && digits[1] <= '8') return '___-___-___';\r\n                if (digits[0] >= '2' && digits[0] <= '9') return '___-____';\r\n                return '___-___-____';\r\n            }\r\n\r\n            function formatWithMask(digits) {\r\n                const mask = getDynamicMask(digits);\r\n                let result = '';\r\n                let i = 0;\r\n                for (let char of mask) {\r\n                    result += (char === '_') ? (digits[i] || '_') : char;\r\n                    if (char === '_') i++;\r\n                }\r\n                return result;\r\n            }\r\n        }, 300);\r\n    }\r\n});",
@@ -246,9 +246,20 @@
   "doctype": "Client Script",
   "dt": "Contact",
   "enabled": 1,
-  "modified": "2025-07-29 11:09:37.757628",
+  "modified": "2025-08-11 00:25:29.439844",
   "module": "My_Data",
   "name": "Jos_Con_Phone+Ext+WhApp_HTML",
+  "script": "// Contact — after_save: refresh the currently open linked Customer/Supplier form\r\n// and re-run the enhancement once the contact_html is rendered.\r\nfrappe.ui.form.on('Contact', {\r\n  after_save(frm) {\r\n    const route = frappe.get_route(); // [\"Form\", \"Customer\", \"CUST-0001\"] or [\"Form\", \"Supplier\", \"SUP-0001\"]\r\n\r\n    (frm.doc.links || []).forEach(link => {\r\n      const dt = link.link_doctype;\r\n      const dn = link.link_name;\r\n\r\n      if (![\"Customer\", \"Supplier\"].includes(dt)) return;\r\n\r\n      // Only reload if that linked doc is actually the one currently open in the UI\r\n      const isOpenOnScreen = Array.isArray(route) && route[0] === \"Form\" && route[1] === dt && route[2] === dn;\r\n      if (!isOpenOnScreen) return;\r\n\r\n      // Reload the open form so contact_html gets rebuilt, then enhance once .address-box appears\r\n      cur_frm.reload_doc().then(() => {\r\n        waitForContactBoxAndRun(() => {\r\n          // IMPORTANT: reuse your existing enhancer\r\n          // It must be globally available (defined once) so we can call it here.\r\n          enhanceContactHTML(cur_frm, dt);\r\n        });\r\n      });\r\n    });\r\n  }\r\n});\r\n",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Contact",
+  "enabled": 0,
+  "modified": "2025-08-11 00:25:01.416680",
+  "module": "My_Data",
+  "name": "BJos_Con_Phone+Ext+WhAp",
   "script": "frappe.ui.form.on('Contact', {\r\n  after_save(frm) {\r\n    (frm.doc.links || []).forEach(link => {\r\n      if (link.link_doctype === 'Customer') {\r\n        const customerName = link.link_name;\r\n        const openCustomerForm = frappe.container.page.frm;\r\n\r\n        // If the linked customer is currently open, reload it to refresh the HTML\r\n        if (openCustomerForm && openCustomerForm.doctype === 'Customer' && openCustomerForm.doc.name === customerName) {\r\n          openCustomerForm.reload_doc();\r\n        }\r\n      }\r\n    });\r\n  }\r\n});\r\n",
   "view": "Form"
  }

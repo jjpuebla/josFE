@@ -85,6 +85,11 @@ doc_events = {
 
 # js files:
 app_include_js = "/assets/josfe/js/loader.js"
+# Map Doctype -> JS file (path is relative to your app's package root)
+doctype_js = {
+    "Customer": "public/js/customer_hook_test.js",
+}
+
 
 
 

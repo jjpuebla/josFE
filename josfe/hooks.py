@@ -9,27 +9,27 @@ fixtures = [
     {
         "dt": "Client Script",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
         ]
     },
 
     {
         "dt": "Custom Field",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
         ]
     },
 
     {
         "dt": "Property Setter",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
         ]
     },
     {
         "dt": "DocType",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
         ]
     },
     {
@@ -37,12 +37,7 @@ fixtures = [
         "filters": [
             ["parent", "=", "Contact Phone"],
         ]
-    },
-        {
-        "dt": "Customize Form",
-        "filters": [["doc_type", "=", "Customer"]]
     }
-
 ]
 
 # Server Scripts
@@ -85,11 +80,20 @@ doc_events = {
 
 # js files:
 app_include_js = "/assets/josfe/js/loader.js"
+
+
 # Map Doctype -> JS file (path is relative to your app's package root)
 doctype_js = {
-    "Customer": "public/js/customer_hook_test.js",
+    "srisri": "public/js/srisri1.js",
+    "Customer": "public/js/srisri1.js",
+    "sri_credential": "public/js/sri_credential.js",
 }
 
+# doctype_list_js = {
+#     "SRI Endpoint": "public/js/sri_endpoint_list.js"
+# }
+
+    # "Customer": "public/js/customer_hook_test.js",
 
 
 

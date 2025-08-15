@@ -1,35 +1,14 @@
-console.log("🧠 doctypes_loader.js initialized");
+// apps/josfe/josfe/public/js/loader.js
+(() => {
+  // --- one-time guard (avoids double registration on hot reload) ---
+  if (window.__josfe_loader_initialized) return;
+  window.__josfe_loader_initialized = true;
 
-function loadScriptOnce(src) {
-  if ([...document.scripts].some(s => s.src.includes(src))) {
-    console.log("⏩ Already loaded:", src);
-    return;
-  }
+  // Toggle for console logs in dev
+  const DEBUG = true;
+  const log = (...a) => DEBUG && console.log("[josfe:loader]", ...a);
 
-  console.log("📥 Injecting script:", src);
-
-  const script = document.createElement("script");
-  script.src = src;
-  script.defer = true;
-  script.onload = () => console.log("✅ Loaded:", src);
-  script.onerror = () => console.error("❌ Failed to load:", src);
-  document.head.appendChild(script);
-}
-
-function getCurrentDoctype() {
-  try {
-    return cur_frm?.doctype || frappe._cur_route?.split("/")?.[1] || null;
-  } catch {
-    return null;
-  }
-}
-
-function waitForDoctypeAndInject() {
-  const doctype = getCurrentDoctype();
-  if (!doctype) return setTimeout(waitForDoctypeAndInject, 200);
-
-  console.log("📄 Detected Doctype:", doctype);
-
+  // Map: exact Doctype names (as stored in DB / shown in cur_frm.doctype)
   const scriptMap = {
     Customer: [
       "/assets/josfe/js/phone_utils.js",
@@ -40,27 +19,50 @@ function waitForDoctypeAndInject() {
       "/assets/josfe/js/phone_utils.js",
       "/assets/josfe/js/tax_id_utils.js",
       "/assets/josfe/js/contact_html_enhancer.js"
-   ],
+    ],
     Contact: [
       "/assets/josfe/js/phone_utils.js",
       "/assets/josfe/js/contact_html_enhancer.js"
     ],
     Company: [
       "/assets/josfe/js/tax_id_utils.js"
+    ],
+    "Credenciales SRI": [
+      "/assets/josfe/js/sri_credential.js"
     ]
   };
 
-  const scripts = scriptMap[doctype] || [];
-
-  if (scripts.length === 0) {
-    // console.log("⚠️ No scripts to load for Doctype:", doctype);
-    return;
+  // Loader: rely on frappe.require (deduped, cached)
+  function loadForDoctype(dt) {
+    const list = scriptMap[dt] || [];
+    if (!list.length) return;
+    log("Doctype detected → loading scripts:", dt, list);
+    list.forEach(src => frappe.require(src));
   }
 
-  scripts.forEach(loadScriptOnce);
-}
+  // Register after desk boot (no timers)
+  frappe.after_ajax(() => {
+    // 1) Form lifecycle: inject during setup (before refresh)
+    if (frappe.ui?.form?.on) {
+      frappe.ui.form.on("*", {
+        setup(frm) {
+          // Ignore the DocType editor itself (/app/doctype/...)
+          if (frm.doctype === "DocType") return;
+          loadForDoctype(frm.doctype);
+        }
+      });
+    }
 
-// Trigger after page is fully loaded
-frappe.after_ajax(() => {
-  setTimeout(waitForDoctypeAndInject, 0);
-});
+    // 2) Route navigations (e.g., List→Form): load when landing on a Form
+    if (frappe.router?.on && frappe.get_route) {
+      frappe.router.on("change", () => {
+        const r = frappe.get_route(); // e.g., ["Form","Customer","CUST-0001"]
+        if (r && r[0] === "Form" && r[1] && r[1] !== "DocType") {
+          loadForDoctype(r[1]);
+        }
+      });
+    }
+
+    log("doctypes_loader initialized");
+  });
+})();

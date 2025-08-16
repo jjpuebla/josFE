@@ -75,26 +75,34 @@ doc_events = {
             "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability",
             "josfe.my_data.validadores_company.sync_company_name"
         ],
-    }
+    },
+    "Warehouse": {
+        "validate": "josfe.sri_invoicing.validations.warehouse.validate_warehouse_sri"
+    },
+    "Sales Invoice": {
+        "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit"
+    },
+    
 }
 
 # js files:
 app_include_js = "/assets/josfe/js/loader.js"
 
+app_include_css = [
+    "/assets/josfe/css/sri_seq.css",             
+]
 
 # Map Doctype -> JS file (path is relative to your app's package root)
 doctype_js = {
-    "srisri": "public/js/srisri1.js",
-    "Customer": "public/js/srisri1.js",
+    "Warehouse": "public/js/warehouse_sri_seq.min.js",
     "sri_credential": "public/js/sri_credential.js",
 }
 
-# doctype_list_js = {
-#     "SRI Endpoint": "public/js/sri_endpoint_list.js"
-# }
-
-    # "Customer": "public/js/customer_hook_test.js",
-
+scheduler_events = {
+    "daily": [
+        "josfe.sri_invoicing.numbering.validate.daily_check",
+    ]
+}
 
 
 # Apps

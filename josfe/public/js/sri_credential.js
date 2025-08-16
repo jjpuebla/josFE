@@ -92,7 +92,7 @@ console.log("[josfe:sri_credential] inline-actions loaded");
                 const enc_password = btoa(pwd);
 
                 const { message } = await frappe.call({
-                  method: "josfe.sri_invoicing.firma_combined.convertir_y_validar_seguro",
+                  method: "josfe.sri_invoicing.signing.pem_tools.convertir_y_validar_seguro",
                   args: {
                     cred_name: frm.doc.name,
                     enc_password: enc_password

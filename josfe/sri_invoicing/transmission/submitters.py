@@ -1,4 +1,5 @@
-# apps/josfe/josfe/sri_invoicing/transmitir_sri.py
+# apps/josfe/josfe/sri_invoicing/transmission/submitters.py
+
 import base64
 import frappe
 from zeep import Client

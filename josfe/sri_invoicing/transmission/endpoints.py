@@ -1,4 +1,4 @@
-# apps/josfe/josfe/sri_invoicing/endpoints.py
+# apps/josfe/josfe/sri_invoicing/transmission/endpoints.py
 import frappe
 
 DEFAULTS = {

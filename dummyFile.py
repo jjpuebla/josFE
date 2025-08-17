@@ -1,131 +1,123 @@
-[
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "naming_series",
-  "is_system_generated": 0,
-  "modified": "2025-04-09 22:00:23.834003",
-  "module": null,
-  "name": "Customer-naming_series-reqd",
-  "property": "reqd",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "0"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "naming_series",
-  "is_system_generated": 0,
-  "modified": "2025-04-09 22:00:24.112596",
-  "module": null,
-  "name": "Customer-naming_series-hidden",
-  "property": "hidden",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "1"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocType",
-  "field_name": null,
-  "is_system_generated": 0,
-  "modified": "2025-07-14 01:47:48.362390",
-  "module": null,
-  "name": "Customer-main-field_order",
-  "property": "field_order",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "[\"basic_info\", \"naming_series\", \"salutation\", \"customer_name\", \"custom_jos_tax_id_validador\", \"customer_type\", \"customer_group\", \"column_break0\", \"territory\", \"gender\", \"lead_name\", \"opportunity_name\", \"prospect_name\", \"account_manager\", \"image\", \"defaults_tab\", \"default_currency\", \"default_bank_account\", \"column_break_14\", \"default_price_list\", \"internal_customer_section\", \"is_internal_customer\", \"represents_company\", \"column_break_70\", \"companies\", \"more_info\", \"market_segment\", \"industry\", \"customer_pos_id\", \"website\", \"language\", \"column_break_45\", \"customer_details\", \"dashboard_tab\", \"contact_and_address_tab\", \"address_contacts\", \"address_html\", \"column_break1\", \"contact_html\", \"primary_address_and_contact_detail\", \"column_break_26\", \"customer_primary_address\", \"primary_address\", \"column_break_nwor\", \"customer_primary_contact\", \"mobile_no\", \"email_id\", \"tax_tab\", \"taxation_section\", \"tax_id\", \"column_break_21\", \"tax_category\", \"tax_withholding_category\", \"accounting_tab\", \"credit_limit_section\", \"payment_terms\", \"credit_limits\", \"default_receivable_accounts\", \"accounts\", \"loyalty_points_tab\", \"loyalty_program\", \"column_break_54\", \"loyalty_program_tier\", \"sales_team_tab\", \"sales_team\", \"sales_team_section\", \"default_sales_partner\", \"column_break_66\", \"default_commission_rate\", \"settings_tab\", \"so_required\", \"dn_required\", \"exempt_from_sales_tax\", \"column_break_53\", \"is_frozen\", \"disabled\", \"portal_users_tab\", \"portal_users\"]"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "customer_type",
-  "is_system_generated": 0,
-  "modified": "2025-07-14 01:21:39.230226",
-  "module": null,
-  "name": "Customer-customer_type-read_only",
-  "property": "read_only",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "1"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "salutation",
-  "is_system_generated": 0,
-  "modified": "2025-07-14 02:00:54.735512",
-  "module": null,
-  "name": "Customer-salutation-hidden",
-  "property": "hidden",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "1"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "salutation",
-  "is_system_generated": 0,
-  "modified": "2025-07-14 02:08:57.114954",
-  "module": null,
-  "name": "Customer-salutation-depends_on",
-  "property": "depends_on",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "//eval:doc.customer_type!='Company'"
- },
- {
-  "default_value": null,
-  "doc_type": "Customer",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "customer_type",
-  "is_system_generated": 0,
-  "modified": "2025-07-14 02:14:30.955377",
-  "module": null,
-  "name": "Customer-customer_type-allow_in_quick_entry",
-  "property": "allow_in_quick_entry",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "1"
- },
+import frappe
 
- {
-  "doctype": "Property Setter",
-  "doc_type": "Address",
-  "field_name": "city",
-  "property": "reqd",
-  "property_type": "Check",
-  "value": "0"
- },
- {
-  "doctype": "Property Setter",
-  "doc_type": "Address",
-  "field_name": "city",
-  "property": "hidden",
-  "property_type": "Check",
-  "value": "1"
- }
-]
+def sync_customer_supplier(doc, method):
+    # Show confirmation that the hook was triggered
+    frappe.msgprint("✅ sync_customer_supplier called")
+
+    # Only apply this logic for Customer or Supplier Doctypes
+    if doc.doctype not in ["Customer", "Supplier"]:
+        return
+
+    # Determine the entity type and relevant names
+    is_customer = doc.doctype == "Customer"
+    full_name = doc.customer_name if is_customer else doc.supplier_name
+    link_doctype = doc.doctype
+    link_name = doc.name
+
+    # === 1. MAIN ADDRESS SYNC ===
+    city = doc.get("custom_jos_city2")
+    dirc = doc.get("custom_jos_direccion")
+    country = doc.get("custom_jos_country")
+    main_address_title = f"Main Address for {full_name}"
+
+    # Debug info for address fields
+    frappe.msgprint(f"📦 Address fields → City: {city}, Dir: {dirc}, Country: {country}")
+
+    # Only proceed if all address fields are provided
+    if city and dirc and country:
+        # Try to find an existing address with this title
+        addr_name = frappe.db.get_value("Address", {"address_title": main_address_title})
+        if addr_name:
+            addr = frappe.get_doc("Address", addr_name)
+            frappe.msgprint("🛠️ Updating existing address")
+        else:
+            # Create a new address
+            addr = frappe.new_doc("Address")
+            addr.address_title = main_address_title
+            addr.address_type = "Billing"
+            addr.is_primary_address = 1
+            addr.links = []
+            addr.append("links", {
+                "link_doctype": link_doctype,
+                "link_name": link_name
+            })
+            frappe.msgprint("➕ Creating new address")
+
+        # Update address content
+        addr.address_line1 = dirc
+        addr.city = city
+        addr.country = country
+        addr.is_primary_address = 1
+        addr.save(ignore_permissions=True)
+    else:
+        frappe.msgprint("❌ No se creará dirección. Falta uno de los campos obligatorios.")
+
+    # === 2. MAIN CONTACT SYNC ===
+    emails = doc.get("custom_jos_emails", [])
+    phones = doc.get("custom_jos_telefonos", [])
+    main_contact_name = f"Main Contact for {full_name}"
+
+    # Debug info for contact data
+    frappe.msgprint(f"📞 Contact data → Emails: {len(emails)}, Phones: {len(phones)}")
+
+    # Try to find an existing contact
+    contact_name = frappe.db.get_value("Contact", {"first_name": main_contact_name})
+    if contact_name:
+        contact = frappe.get_doc("Contact", contact_name)
+        frappe.msgprint("🛠️ Updating existing contact")
+    else:
+        # Create a new contact
+        contact = frappe.new_doc("Contact")
+        contact.first_name = main_contact_name
+        contact.is_primary_contact = 1
+        contact.links = []
+        contact.append("links", {
+            "link_doctype": link_doctype,
+            "link_name": link_name
+        })
+        frappe.msgprint("➕ Creating new contact")
+
+    # Clear any existing emails and phone numbers
+    contact.email_ids = []
+    contact.phone_nos = []
+
+    # Add new email rows
+    for i, row in enumerate(emails):
+        if hasattr(row, "email_id") and row.email_id:
+            contact.append("email_ids", {
+                "email_id": row.email_id,
+                "is_primary": 1 if i == 0 else 0
+            })
+
+    # Add new phone rows including extension and WhatsApp flag
+    for i, row in enumerate(phones):
+        if hasattr(row, "phone") and row.phone:
+            contact.append("phone_nos", {
+                "phone": row.phone,
+                "is_primary_phone": 1 if i == 0 else 0,
+                "jos_phone_ext": getattr(row, "jos_phone_ext", None),
+                "jos_whatsapp": getattr(row, "jos_whatsapp", 0)
+            })
+
+    contact.save(ignore_permissions=True)
+
+    # === 3. REVERSE SYNC (Address → Custom Fields) ===
+    addr_name = frappe.db.get_value("Address", {"address_title": main_address_title})
+    if addr_name:
+        addr = frappe.get_doc("Address", addr_name)
+        updated = False
+
+        # Update doc fields if different from stored address
+        if addr.city and addr.city != doc.get("custom_jos_city2"):
+            doc.custom_jos_city2 = addr.city
+            updated = True
+        if addr.address_line1 and addr.address_line1 != doc.get("custom_jos_direccion"):
+            doc.custom_jos_direccion = addr.address_line1
+            updated = True
+        if addr.country and addr.country != doc.get("custom_jos_country"):
+            doc.custom_jos_country = addr.country
+            updated = True
+
+        if updated:
+            doc.db_update()
+            frappe.msgprint("🔄 Campos custom actualizados desde la dirección principal")

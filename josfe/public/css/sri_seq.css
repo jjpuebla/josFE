@@ -1,0 +1,49 @@
+/* Light-blue, icon-only init_or_edit button in the child grid */
+.grid-body .grid-row [data-fieldname="init_or_edit"] .btn {
+  color: transparent !important;
+  font-size: 0 !important;
+  padding: 0.35rem 0.5rem !important;
+  min-width: 2.25rem !important;
+  height: 2.0rem !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: .5rem !important;
+  background-color: #e0f2fe !important;  /* sky-100 */
+  border-color: #93c5fd !important;      /* blue-300 */
+}
+.grid-body .grid-row [data-fieldname="init_or_edit"] .btn::before {
+  content: "🔧";
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #0369a1;                         /* sky-700 */
+}
+.grid-body .grid-row [data-fieldname="init_or_edit"] .btn:hover,
+.grid-body .grid-row [data-fieldname="init_or_edit"] .btn:focus {
+  background-color: #bae6fd !important;   /* sky-200 */
+  border-color: #60a5fa !important;       /* blue-400 */
+  box-shadow: 0 0 0 2px rgba(56,189,248,.25);
+}
+
+/* Grey read-only look for seq_* inputs */
+.grid-body .grid-row [data-fieldname="seq_factura"] input.form-control,
+.grid-body .grid-row [data-fieldname="seq_nc"]      input.form-control,
+.grid-body .grid-row [data-fieldname="seq_nd"]      input.form-control,
+.grid-body .grid-row [data-fieldname="seq_ret"]     input.form-control,
+.grid-body .grid-row [data-fieldname="seq_liq"]     input.form-control,
+.grid-body .grid-row [data-fieldname="seq_gr"]      input.form-control {
+  background: #f3f4f6 !important; /* gray-100 */
+  color: #6b7280 !important;       /* gray-500 */
+  cursor: default;
+}
+
+/* Invalid field highlight used by modal */
+.josfe-invalid input.form-control { border: 2px solid #dc3545 !important; }
+
+/* small red inline hint under invalid fields in the modal */
+.josfe-hint {
+  color: #dc3545;
+  font-size: .80rem;
+  margin-top: .2rem;
+}
+

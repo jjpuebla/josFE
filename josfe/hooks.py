@@ -8,27 +8,101 @@ app_license = "mit"
 fixtures = [
     {
         "dt": "Client Script",
-        "filters": [["name", "in", ["JOS_Tax_Id_Validador", "Address-City-Sync"]]]
+        "filters": [
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
+        ]
     },
+
     {
         "dt": "Custom Field",
-        "filters": [["name", "in", ["Customer-custom_jos_tax_id_validador", "Address-custom_jos_ecua_cities"]]]
+        "filters": [
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
+        ]
     },
+
     {
         "dt": "Property Setter",
         "filters": [
-            ["doc_type", "in", ["Customer", "Address"]],
-            ["field_name", "in", ["customer_type", "salutation", "tax_id", "country"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
+        ]
+    },
+    {
+        "dt": "DocType",
+        "filters": [
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
+        ]
+    },
+    {
+        "dt": "DocField",
+        "filters": [
+            ["parent", "=", "Contact Phone"],
         ]
     }
 ]
 
+# Server Scripts
+import josfe.api.contact_hooks
+
 doc_events = {
+    "Contact": {
+        "on_update": "josfe.api.contact_hooks.refresh_html",
+        "validate": "josfe.api.phone_validator.validate_contact_phones"
+    },
     "Customer": {
-        "validate": "josfe.custom.Server_Tax_Id_Validador.Tax_Id_Validador.validate_tax_id"
-    }
+        "validate": [
+            "josfe.clientesetup.validadores_customer.validate_tax_id",
+            "josfe.api.phone_validator.validate_entity_phones",
+            "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability"
+        ],
+        "on_update": "josfe.api.create_quick_entity.sync_customer_supplier",
+        "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier",
+        "autoname": "josfe.overrides.customer_naming.autoname_customer"
+    },
+    "Supplier": {
+        "validate": [
+            "josfe.compras.validadores_supplier.validate_tax_id",
+            "josfe.api.phone_validator.validate_entity_phones",
+            "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability"
+        ],
+        "on_update": "josfe.api.create_quick_entity.sync_customer_supplier",
+        "after_insert": "josfe.api.create_quick_entity.sync_customer_supplier",
+        "autoname": "josfe.overrides.supplier_naming.autoname_supplier"
+
+    },
+    "Company": {
+        "validate": [
+            "josfe.my_data.validadores_company.validate_tax_id",
+            "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability",
+            "josfe.my_data.validadores_company.sync_company_name"
+        ],
+    },
+    "Warehouse": {
+        "validate": "josfe.sri_invoicing.validations.warehouse.validate_warehouse_sri"
+    },
+    "Sales Invoice": {
+        "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit"
+    },
+    
 }
 
+# js files:
+app_include_js = "/assets/josfe/js/loader.js"
+
+app_include_css = [
+    "/assets/josfe/css/sri_seq.css",             
+]
+
+# Map Doctype -> JS file (path is relative to your app's package root)
+doctype_js = {
+    "Warehouse": "public/js/warehouse_sri_seq.min.js",
+    "sri_credential": "public/js/sri_credential.js",
+}
+
+scheduler_events = {
+    "daily": [
+        "josfe.sri_invoicing.numbering.validate.daily_check",
+    ]
+}
 
 
 # Apps

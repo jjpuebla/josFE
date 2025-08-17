@@ -1,5 +1,5 @@
-Facturación Electrónica JOS
-ClienteSetup
-Compras
+facturación_electrónica_jos
+clientesetup
+compras
 sri_invoicing
-My_Data
+my_data

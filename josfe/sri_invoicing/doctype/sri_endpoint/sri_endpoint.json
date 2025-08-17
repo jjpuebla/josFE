@@ -1,0 +1,123 @@
+{
+ "actions": [],
+ "autoname": "format:{service}-{ambiente}-{company}",
+ "creation": "2025-08-16 11:40:58.431605",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "service",
+  "ambiente",
+  "wsdl_url",
+  "active",
+  "priority",
+  "verify_ssl",
+  "timeout_seconds",
+  "test_xml",
+  "notes",
+  "last_tested",
+  "last_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "service",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "service",
+   "options": "Recepci\u00f3n\nAutorizaci\u00f3n",
+   "reqd": 1
+  },
+  {
+   "fieldname": "ambiente",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "ambiente",
+   "options": "Pruebas\nProducci\u00f3n",
+   "reqd": 1
+  },
+  {
+   "fieldname": "wsdl_url",
+   "fieldtype": "Data",
+   "label": "wsdl_url",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "active"
+  },
+  {
+   "default": "10",
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "priority"
+  },
+  {
+   "default": "0",
+   "fieldname": "verify_ssl",
+   "fieldtype": "Check",
+   "label": "verify_ssl"
+  },
+  {
+   "default": "15",
+   "fieldname": "timeout_seconds",
+   "fieldtype": "Int",
+   "label": "timeout_seconds"
+  },
+  {
+   "fieldname": "test_xml",
+   "fieldtype": "Attach",
+   "label": "test_xml"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "notes"
+  },
+  {
+   "fieldname": "last_tested",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "last_tested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "last_status",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-16 18:12:25.444221",
+ "modified_by": "Administrator",
+ "module": "sri_invoicing",
+ "name": "SRI Endpoint",
+ "naming_rule": "Set by user",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

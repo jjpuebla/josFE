@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:SRI-LOG-{warehouse}-{emission_point_code}-{doc_type}-{#####}",
+ "creation": "2025-08-16 11:40:58.544590",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "warehouse",
+  "emission_point_code",
+  "doc_type",
+  "action",
+  "old_value",
+  "new_value",
+  "note",
+  "by_user",
+  "when"
+ ],
+ "fields": [
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "emission_point_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "emission_point_code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "doc_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "doc_type",
+   "options": "Factura\nNota de Cr\u00e9dito\nNota de D\u00e9bito\nComprobante Retenci\u00f3n\nLiquidaci\u00f3n Compra\nGu\u00eda de Remisi\u00f3n",
+   "reqd": 1
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Action",
+   "options": "INIT\nEDIT\nAUTO",
+   "reqd": 1
+  },
+  {
+   "fieldname": "old_value",
+   "fieldtype": "Int",
+   "label": "Old Value"
+  },
+  {
+   "fieldname": "new_value",
+   "fieldtype": "Int",
+   "label": "New Value"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note"
+  },
+  {
+   "fieldname": "by_user",
+   "fieldtype": "Link",
+   "label": "By User",
+   "options": "User"
+  },
+  {
+   "fieldname": "when",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "When"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-16 18:11:20.677926",
+ "modified_by": "Administrator",
+ "module": "sri_invoicing",
+ "name": "SRI Secuencial Log",
+ "naming_rule": "Set by user",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "when",
+ "sort_order": "DESC",
+ "states": []
+}

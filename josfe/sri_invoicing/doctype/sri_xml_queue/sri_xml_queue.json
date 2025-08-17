@@ -1,0 +1,31 @@
+{
+  "doctype": "DocType",
+  "name": "SRI XML Queue",
+  "module": "SRI Invoicing",
+  "autoname": "format:SRIQ-{YYYY}-{#####}",
+  "custom": 0,
+  "track_changes": 1,
+  "is_submittable": 0,
+  "allow_rename": 0,
+  "editable_grid": 0,
+  "naming_rule": "By fieldname",
+  "fields": [
+    {"fieldname":"naming_series","label":"Serie de Nombres","fieldtype":"Data","read_only":1,"in_list_view":0},
+    {"fieldname":"sales_invoice","label":"Factura de Venta","fieldtype":"Link","options":"Sales Invoice","reqd":1,"in_list_view":1,"unique":1},
+    {"fieldname":"company","label":"Compañía","fieldtype":"Link","options":"Company","reqd":1,"in_list_view":1},
+    {"fieldname":"customer","label":"Cliente","fieldtype":"Link","options":"Customer","in_list_view":1},
+    {"fieldname":"state","label":"Estado","fieldtype":"Select","options":"En Cola\nFirmando\nListo para Transmitir\nTransmitido\nAceptado\nRechazado\nFallido\nCancelado","reqd":1,"default":"Queued","in_list_view":1},
+    {"fieldname":"xml_file","label":"Archivo XML","fieldtype":"Link","options":"File"},
+    {"fieldname":"signed_xml_file","label":"Archivo XML Firmado","fieldtype":"Link","options":"File"},
+    {"fieldname":"sri_authorization","label":"Autorización SRI #","fieldtype":"Data"},
+    {"fieldname":"last_error","label":"Último Error","fieldtype":"Small Text"},
+    {"fieldname":"last_transition_at","label":"Última Transición En","fieldtype":"Datetime","read_only":1},
+    {"fieldname":"last_transition_by","label":"Última Transición Por","fieldtype":"Link","options":"User","read_only":1}
+  ],
+  "permissions": [
+    {"role": "FE Admin", "read": 1, "write": 1, "create": 1, "delete": 1, "print": 1, "email": 1, "export": 1, "share": 1},
+    {"role": "Accounts Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "print": 1, "email": 1, "export": 1},
+    {"role": "Accounts User", "read": 1, "create": 1}
+  ]
+}
+

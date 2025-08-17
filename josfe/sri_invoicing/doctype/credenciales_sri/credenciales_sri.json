@@ -1,0 +1,87 @@
+{
+ "actions": [],
+ "autoname": "format:{company}-{#}",
+ "creation": "2025-08-16 11:40:58.326849",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "jos_nombre_certificado",
+  "jos_firma_electronica",
+  "jos_ambiente",
+  "jos_activo",
+  "jos_sri_acciones_html",
+  "jos_validacion_log"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "jos_nombre_certificado",
+   "fieldtype": "Data",
+   "label": "Nombre del Certificado"
+  },
+  {
+   "fieldname": "jos_firma_electronica",
+   "fieldtype": "Attach",
+   "in_list_view": 1,
+   "label": "Archivo .p12",
+   "reqd": 1
+  },
+  {
+   "default": "Pruebas",
+   "fieldname": "jos_ambiente",
+   "fieldtype": "Select",
+   "label": "Ambiente SRI",
+   "options": "Pruebas\nProducci\u00f3n"
+  },
+  {
+   "default": "0",
+   "fieldname": "jos_activo",
+   "fieldtype": "Check",
+   "label": "Activar?"
+  },
+  {
+   "fieldname": "jos_sri_acciones_html",
+   "fieldtype": "HTML",
+   "label": "Acciones SRI"
+  },
+  {
+   "fieldname": "jos_validacion_log",
+   "fieldtype": "Small Text",
+   "label": "Log de Validaci\u00f3n",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-16 18:09:47.089377",
+ "modified_by": "Administrator",
+ "module": "sri_invoicing",
+ "name": "Credenciales SRI",
+ "naming_rule": "Set by user",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

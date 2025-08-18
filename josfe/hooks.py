@@ -80,7 +80,9 @@ doc_events = {
         "validate": "josfe.sri_invoicing.validations.warehouse.validate_warehouse_sri"
     },
     "Sales Invoice": {
-        "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit"
+        "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit",
+        "on_submit": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_submit",
+        "on_cancel": "josfe.sri_invoicing.queue.api.on_sales_invoice_cancel",
     },
     
 }

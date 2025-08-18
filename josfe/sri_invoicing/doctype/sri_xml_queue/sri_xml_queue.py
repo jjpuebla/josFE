@@ -5,14 +5,14 @@ from typing import Dict, Set, Optional
 
 
 class SRIQueueState(str, Enum):
-    Queued = "Queued"
-    Signing = "Signing"
-    ReadyToTransmit = "ReadyToTransmit"
-    Transmitted = "Transmitted"
-    Accepted = "Accepted"
-    Rejected = "Rejected"
-    Failed = "Failed"
-    Canceled = "Canceled"
+    Queued            = "En Cola"
+    Signing           = "Firmando"
+    ReadyToTransmit   = "Listo para Transmitir"
+    Transmitted       = "Transmitido"
+    Accepted          = "Aceptado"
+    Rejected          = "Rechazado"
+    Failed            = "Fallido"
+    Canceled          = "Cancelado"
 
     @classmethod
     def terminals(cls) -> Set["SRIQueueState"]:

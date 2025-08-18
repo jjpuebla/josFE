@@ -1,4 +1,0 @@
-{
-  "exclude": ["node_modules", ".git", "env", "venv", "__pycache__"],
-  "contextStrategy": "default"
-}

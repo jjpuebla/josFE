@@ -47,3 +47,36 @@
   margin-top: .2rem;
 }
 
+
+/* Label + globe aligned right */
+.josfe-sri-serie .form-group > .clearfix {
+  display: flex !important;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 4px;
+}
+.josfe-sri-serie .control-label,
+.josfe-sri-serie .control-value.like-disabled-input,
+.josfe-sri-serie .input-with-feedback > .form-control {
+  font-weight: 700 !important;
+  font-size: calc(1rem + 2pt) !important;
+  text-align: right !important;
+}
+
+/* Field wrapper right-aligned */
+.josfe-sri-serie .control-input-wrapper {
+  display: flex !important;
+  justify-content: flex-end !important;
+}
+
+/* Value + input chip */
+.josfe-sri-serie .control-value.like-disabled-input,
+.josfe-sri-serie .input-with-feedback > .form-control {
+  display: inline-block !important;
+  background: #d4edda !important; /* light green */
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: auto !important;
+  min-width: 4ch;
+  box-sizing: content-box !important;
+}

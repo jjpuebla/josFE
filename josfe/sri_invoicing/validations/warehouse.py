@@ -18,6 +18,26 @@ SEQ_LABELS = {
     "seq_liq": "Liquidación Compra",
     "seq_gr": "Guía de Remisión",
 }
+def validate_no_duplicate_pe_per_parent(doc, method=None):
+    # Find the child table field actually used on Warehouse
+    for fieldname in ("custom_jos_SRI_puntos_emision",
+                      "custom_jos_Sri_puntos_emision",
+                      "custom_sri_puntos_emision"):
+        rows = doc.get(fieldname)
+        if rows:
+            break
+    else:
+        return
+
+    seen = set()
+    for r in rows:
+        code = (r.get("emission_point_code") or "").strip()
+        if not code:
+            frappe.throw(f"Fila {r.idx}: Código de Punto de Emisión vacío.")
+        if code in seen:
+            frappe.throw(f"Fila {r.idx}: Punto de Emisión '{code}' repetido en esta Sucursal.")
+        seen.add(code)
+
 
 def _child_fieldname_on_warehouse() -> str | None:
     meta = frappe.get_meta("Warehouse")

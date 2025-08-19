@@ -77,13 +77,21 @@ doc_events = {
         ],
     },
     "Warehouse": {
-        "validate": "josfe.sri_invoicing.validations.warehouse.validate_warehouse_sri"
+        "validate": [
+            "josfe.sri_invoicing.validations.warehouse.validate_warehouse_sri",
+            "josfe.sri_invoicing.validations.warehouse.validate_no_duplicate_pe_per_parent",
+    ],
     },
-    "Sales Invoice": {
+    "Sales Invoice": {        
+        "autoname": "josfe.sri_invoicing.numbering.serie_autoname.si_autoname",
         "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit",
         "on_submit": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_submit",
         "on_cancel": "josfe.sri_invoicing.queue.api.on_sales_invoice_cancel",
     },
+    "SRI Puntos Emision": {
+        "on_trash": "josfe.sri_invoicing.warehouse_guards.prevent_deleting_emission_point"
+    },
+
     
 }
 
@@ -97,7 +105,8 @@ app_include_css = [
 # Map Doctype -> JS file (path is relative to your app's package root)
 doctype_js = {
     "Warehouse": "public/js/warehouse_sri_seq.min.js",
-    "sri_credential": "public/js/sri_credential.js",
+    "Sales Invoice": "public/js/sales_invoice_series.js",
+    "Credenciales SRI": "public/js/sri_credential.js",
 }
 
 scheduler_events = {

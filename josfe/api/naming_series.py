@@ -46,3 +46,60 @@ def get_address_for_warehouse(warehouse):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "get_address_for_warehouse")
         return ""
+
+# --- SRI serie preview (non-allocating) ----------------------------------------
+import re
+
+def _z3(v: str) -> str:
+    """Normalize to 3-digit zero-padded code (accepts '001 - Foo')."""
+    if v is None:
+        return ""
+    v = str(v).strip()
+    v = v.split(" - ", 1)[0].strip() or v
+    try:
+        return f"{int(v):03d}"
+    except Exception:
+        # keep only digits if any, else empty
+        digits = re.sub(r"\D", "", v)
+        return digits.zfill(3) if digits else ""
+
+def _z9(n: int) -> str:
+    return f"{int(n):09d}"
+
+@frappe.whitelist()
+def peek_next_si_series(warehouse: str, pe_code: str) -> str:
+    """
+    Return preview 'EST-PE-#########' for Sales Invoice WITHOUT allocating.
+    Uses last SI name for the same EST/PE to infer the next number.
+    """
+    if not warehouse or not pe_code:
+        return ""
+
+    est_raw = frappe.db.get_value("Warehouse", warehouse, "custom_establishment_code") or ""
+    est = _z3(est_raw)
+    pe  = _z3(pe_code)
+
+    if not est or not pe:
+        return ""
+
+    # Try to infer next number from existing Sales Invoice names
+    last = frappe.db.sql(
+        """
+        select name
+        from `tabSales Invoice`
+        where name like %s
+        order by name desc
+        limit 1
+        """,
+        (f"{est}-{pe}-%",),
+    )
+
+    next_num = 1
+    if last and last[0][0]:
+        try:
+            suffix = last[0][0].rsplit("-", 1)[1]
+            next_num = int(suffix) + 1
+        except Exception:
+            next_num = 1
+
+    return f"{est}-{pe}-{_z9(next_num)}"

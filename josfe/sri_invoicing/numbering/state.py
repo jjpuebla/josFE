@@ -71,8 +71,7 @@ def _choose_parentfield_for_wh() -> str:
         df = meta.get_field(f)
         if df and df.fieldtype == "Table" and (df.options or "").strip() == CHILD_DOCTYPE:
             return f
-    # fallback to first candidate
-    return WAREHOUSE_CHILD_FIELDS[0]
+    return WAREHOUSE_CHILD_FIELDS[0]  # fallback
 
 
 # =========================
@@ -179,12 +178,11 @@ def _insert_child_row(warehouse_name: str, emission_point_code: str):
         child.insert(ignore_permissions=True)
         return _row_by_name_locked(child.name)
     except DuplicateEntryError:
-        # Check who owns this name
-        existing = _row_by_name_locked(intended_name)
-        if existing and existing.get("parent") == warehouse_name:
-            return existing  # already ours
-
-        # Rare: name collision (e.g., manually created/orphan); suffix and keep going
+        # First, see if a row with the same (Warehouse + EP) already exists — reuse it.
+        existing_same_parent = _find_row_in_same_warehouse_locked(warehouse_name, emission_point_code)
+        if existing_same_parent:
+            return existing_same_parent
+        # Otherwise, conflict on name only (e.g., reused name). Create a unique name.
         child.name = f"{intended_name}-{frappe.generate_hash(length=8)}"
         child.flags.name_set = True
         child.insert(ignore_permissions=True)
@@ -235,17 +233,34 @@ def initiate_or_edit(
     updates_dict=None,
     note: str = "",
     emission_point_code: str | None = None,
+    establishment_code: str | None = None,  # accepts EC if missing
 ):
     """
     INIT (initiated=0): set provided seq_* and mark initiated=1 (UI enforces all six ≥ 1).
     EDIT (initiated=1): allow equal, block lower.
-
-    If row_name is missing (brand-new UI row), resolve/create by (warehouse, emission_point_code).
+    If row_name is missing (brand-new UI row), resolve/create by (warehouse, emission point).
     """
     _require_privileged()
+
+    # Normalize updates
     if isinstance(updates_dict, str):
         updates_dict = json.loads(updates_dict or "{}")
     updates_dict = updates_dict or {}
+
+    # Ensure Warehouse has a saved 3-digit establishment code (from client, if needed)
+    if establishment_code:
+        establishment_code = (establishment_code or "").strip()
+        if establishment_code.isdigit() and len(establishment_code) == 3:
+            current = (frappe.get_cached_value("Warehouse", warehouse_name, "custom_establishment_code") or "").strip()
+            if not current:
+                frappe.db.set_value(
+                    "Warehouse",
+                    warehouse_name,
+                    "custom_establishment_code",
+                    establishment_code,
+                    update_modified=False,
+                )
+                frappe.clear_document_cache("Warehouse", warehouse_name)
 
     def inner():
         row = _row_by_name_locked(row_name) if row_name else None
@@ -326,3 +341,54 @@ def peek_next(warehouse_name: str, emission_point_code: str, doc_type: str) -> i
     row = _get_active_row_by_parent_code_locked(warehouse_name, emission_point_code)
     curr = int(row.get(field) or 0)
     return curr + 1
+
+@frappe.whitelist()
+def level3_warehouse_link_query(doctype, txt, searchfield, start, page_len, filters):
+    """
+    Link search for Sales Invoice -> custom_jos_level3_warehouse.
+    Criteria:
+      - custom_sri_is_establishment = 1 (your flag)
+      - has Establishment Code (EC)
+      - has at least one ACTIVE/ACTIVO PE row (estado normalized)
+      - text search on name/warehouse_name
+    NOTE: We do NOT filter on is_group; level-3 may be groups (parents of level-4).
+    """
+    return frappe.db.sql("""
+        SELECT w.name
+        FROM `tabWarehouse` w
+        WHERE COALESCE(w.custom_sri_is_establishment, 0) = 1
+          AND COALESCE(w.custom_establishment_code, '') <> ''
+          AND EXISTS (
+                SELECT 1
+                FROM `tabSRI Puntos Emision` pe
+                WHERE pe.parent = w.name
+                  AND TRIM(UPPER(COALESCE(pe.estado,''))) IN ('ACTIVO','ACTIVE')
+          )
+          AND (w.name LIKE %(kw)s OR w.warehouse_name LIKE %(kw)s)
+        ORDER BY w.modified DESC
+        LIMIT %(start)s, %(page_len)s
+    """, {
+        "kw": f"%{txt or ''}%",
+        "start": start, "page_len": page_len
+    })
+
+
+@frappe.whitelist()
+def list_active_emission_points(warehouse_name: str):
+    if not warehouse_name:
+        return []
+
+    rows = frappe.get_all(
+        "SRI Puntos Emision",
+        filters={
+            "parent": warehouse_name,
+            "estado": ["in", ["Activo", "ACTIVO", "ACTIVE"]],
+        },
+        fields=["emission_point_code"]  # ← only this; 'descripcion' doesn't exist
+    )
+
+    out = []
+    for r in rows:
+        code = str(r.get("emission_point_code") or "").strip().zfill(3)
+        out.append({"code": code})  # ← no label; simple and safe
+    return out

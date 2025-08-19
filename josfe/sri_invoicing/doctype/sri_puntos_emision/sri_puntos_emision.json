@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:{emission_point_code}",
+ "autoname": "hash",
  "creation": "2025-08-16 11:40:58.487755",
  "doctype": "DocType",
  "editable_grid": 1,

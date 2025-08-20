@@ -84,6 +84,7 @@ doc_events = {
     },
     "Sales Invoice": {        
         "autoname": "josfe.sri_invoicing.numbering.serie_autoname.si_autoname",
+        "before_save": "josfe.sri_invoicing.numbering.serie_autoname.si_before_save",
         "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit",
         "on_submit": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_submit",
         "on_cancel": "josfe.sri_invoicing.queue.api.on_sales_invoice_cancel",
@@ -115,6 +116,14 @@ scheduler_events = {
     ]
 }
 
+boot_session = "josfe.user_location.session.extend_boot_with_location"
+
+permission_query_conditions = {
+  "Sales Invoice": "josfe.user_location.permissions.get_permission_query_conditions"
+}
+has_permission = {
+  "Sales Invoice": "josfe.user_location.permissions.has_permission"
+}
 
 # Apps
 # ------------------

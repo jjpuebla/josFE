@@ -1,22 +1,18 @@
 import frappe
-from josfe.sri_invoicing.numbering.state import next_sequential
-
-# def si_before_submit(doc, method):
-#     # Adjust these fieldnames to your reality:
-#     warehouse = getattr(doc, "set_warehouse", None) or getattr(doc, "warehouse", None)
-#     emission_point = getattr(doc, "sri_emission_point", None)  # you provide this in UI/logic
-
-#     if not warehouse or not emission_point:
-#         frappe.throw("Missing Warehouse or Emission Point on Sales Invoice.")
-
-#     seq = next_sequential(warehouse, emission_point, "Factura")
-
-#     # Persist for audit / XML build
-#     doc.sri_establishment_code = frappe.db.get_value("Warehouse", warehouse, "custom_establishment_code")
-#     doc.sri_emission_point_code = emission_point
-#     doc.sri_sequential_assigned = seq
+# Importa el helper donde realmente está definido
+from josfe.sri_invoicing.numbering.serie_autoname import _ensure_sri_fields
 
 def si_before_submit(doc, method):
-    for f in ["sri_establishment_code", "sri_emission_point_code", "sri_sequential_assigned"]:
-        if not getattr(doc, f, None):
-            frappe.throw("No se ha asignado la serie SRI correctamente. Falta: " + f)
+    # Última verificación/relleno antes de enviar
+    _ensure_sri_fields(doc)
+
+    missing = [
+        f for f in [
+            "sri_establishment_code",
+            "sri_emission_point_code",
+            "sri_sequential_assigned",
+        ]
+        if not getattr(doc, f, None)
+    ]
+    if missing:
+        frappe.throw("No se ha asignado la serie SRI correctamente. Falta: " + ", ".join(missing))

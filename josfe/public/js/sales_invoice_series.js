@@ -19,6 +19,7 @@ frappe.ui.form.on("Sales Invoice", {
     maybe_load_pe_options(frm, false); // if warehouse already selected
     ensureSerieField(frm);
     paintSeriePreview(frm);
+    applyLocationDefaults(frm);
   },
 
   custom_jos_level3_warehouse(frm) {
@@ -119,6 +120,11 @@ function maybe_load_pe_options(frm, clear) {
 async function paintSeriePreview(frm) {
   ensureSerieField(frm);
 
+  // ⛔ Don't preview once the document has a real name (i.e., saved)
+  if (!frm.is_new()) {
+    return;
+  }
+
   const wh = frm.doc.custom_jos_level3_warehouse;
   const peRaw = (frm.doc.custom_jos_sri_emission_point_code || "").trim();
   const peCode = (peRaw.split(" - ", 1)[0] || "").trim();
@@ -134,7 +140,7 @@ async function paintSeriePreview(frm) {
       method: "josfe.sri_invoicing.numbering.naming_series.peek_next_si_series",
       args: { warehouse: wh, pe_code: peCode }
     });
-    if (myReq !== __seriePreviewReq) return; // newer request finished first
+    if (myReq !== __seriePreviewReq) return;
     frm.set_value("custom_sri_serie", message || "");
   } catch {
     if (myReq !== __seriePreviewReq) return;
@@ -190,4 +196,24 @@ function warnIfNoCustomerBeforeWarehouseSelection(frm) {
       });
     }
   });
+}
+
+function applyLocationDefaults(frm) {
+  const selected = frappe.boot.user.defaults.jos_selected_establishment;
+  if (!selected) return;
+
+  // Set default if not already set
+  if (!frm.doc.custom_jos_level3_warehouse) {
+    frm.set_value("custom_jos_level3_warehouse", selected);
+  }
+
+  // Disable the field to prevent changes
+  frm.toggle_enable("custom_jos_level3_warehouse", false);
+
+  // Set filter to only allow warehouses under the selected parent
+  frm.set_query("custom_jos_level3_warehouse", () => ({
+    filters: {
+      parent_warehouse: selected
+    }
+  }));
 }

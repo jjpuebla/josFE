@@ -29,6 +29,32 @@
     ],
     "Credenciales SRI": [
       "/assets/josfe/js/sri_credential.js"
+    ],
+
+    // 👇 Add these
+    "Sales Invoice": [
+      "/assets/josfe/js/user_location_boot.js",
+      "/assets/josfe/js/form_location_lock.js"
+    ],
+    "Nota de Crédito": [
+      "/assets/josfe/js/user_location_boot.js",
+      "/assets/josfe/js/form_location_lock.js"
+    ],
+    "Nota de Débito": [
+      "/assets/josfe/js/user_location_boot.js",
+      "/assets/josfe/js/form_location_lock.js"
+    ],
+    "Comprobante de Retención": [
+      "/assets/josfe/js/user_location_boot.js",
+      "/assets/josfe/js/form_location_lock.js"
+    ],
+    "Liquidación de Compra": [
+      "/assets/josfe/js/user_location_boot.js",
+      "/assets/josfe/js/form_location_lock.js"
+    ],
+    "Guía de Remisión": [
+      "/assets/josfe/js/user_location_boot.js",
+      "/assets/josfe/js/form_location_lock.js"
     ]
   };
 

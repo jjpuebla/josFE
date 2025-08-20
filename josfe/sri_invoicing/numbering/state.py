@@ -281,38 +281,36 @@ def initiate_or_edit(
                 frappe.throw(f"Unsupported doc_type: {doc_type}")
 
             try:
-                new_val = int(new_val)
+                next_val = int(new_val)
             except Exception:
                 frappe.throw(f"{doc_type}: value must be an integer.")
 
+            if next_val < 1:
+                frappe.throw(f"{doc_type}: next value must be ≥ 1.")
+
+            # Convert "next to issue" → stored "current"
+            proposed_current = next_val - 1
             old_val = int(row.get(field) or 0)
+
             if action == "EDIT":
-                if new_val < old_val:
-                    frappe.throw(f"{doc_type}: new value {new_val} must not be lower than current {old_val}.")
-                if new_val == old_val:
-                    continue  # equal → allowed, no-op
+                if proposed_current < old_val:
+                    frappe.throw(
+                        f"{doc_type}: new value {next_val} would lower current to {proposed_current} (< {old_val})."
+                    )
+                if proposed_current == old_val:
+                    continue  # no-op
 
-            updates[field] = new_val
-            _log(warehouse_name, row.get("emission_point_code"), doc_type, action, old_val, new_val, note)
-
-        if updates:
-            to_write = dict(updates)
-            if note and _has_last_adjust_note():
-                to_write["last_adjust_note"] = note
-            frappe.db.set_value(CHILD_DOCTYPE, row["name"], to_write, update_modified=False)
-
-        if action == "INIT" and not int(row.get("initiated") or 0):
-            frappe.db.set_value(CHILD_DOCTYPE, row["name"], "initiated", 1, update_modified=False)
-
-        return {"status": "ok", "action": action, "updated": updates}
-
-    return _with_retry(inner)
+            updates[field] = proposed_current
+            _log(warehouse_name, row.get("emission_point_code"), doc_type, action, old_val, proposed_current, note)
 
 @frappe.whitelist()
 def next_sequential(warehouse_name: str, emission_point_code: str, doc_type: str) -> int:
     """
-    Atomic increment for issuing flows (before_submit). Returns the NEW value.
-    Requires emission point ACTIVO.
+    Allocate the next sequential (post-increment semantics):
+
+    - Stored field (seq_*) means "next to issue".
+    - We return the CURRENT stored value as the assigned number,
+      then increment the stored value by +1.
     """
     field = FIELD_BY_TYPE.get(doc_type)
     if not field:
@@ -320,18 +318,34 @@ def next_sequential(warehouse_name: str, emission_point_code: str, doc_type: str
 
     def inner():
         row = _get_active_row_by_parent_code_locked(warehouse_name, emission_point_code)
-        curr = int(row.get(field) or 0)
-        newv = curr + 1
-        frappe.db.set_value(CHILD_DOCTYPE, row["name"], field, newv, update_modified=False)
-        _log(warehouse_name, row.get("emission_point_code"), doc_type, "AUTO", curr, newv, "auto-increment on issuance")
-        return newv
+
+        # If somehow empty/zero, treat as 1 (first issue)
+        current_next = int(row.get(field) or 1)
+
+        # Assign this one
+        assigned = current_next
+
+        # And move the counter forward
+        new_next = current_next + 1
+        frappe.db.set_value(CHILD_DOCTYPE, row["name"], field, new_next, update_modified=False)
+
+        _log(
+            warehouse_name,
+            row.get("emission_point_code"),
+            doc_type,
+            "AUTO",
+            current_next,           # old "next to issue"
+            new_next,               # new "next to issue"
+            "issue & post-increment"
+        )
+        return assigned
 
     return _with_retry(inner)
 
 @frappe.whitelist()
 def peek_next(warehouse_name: str, emission_point_code: str, doc_type: str) -> int:
     """
-    Read-only preview: returns current+1 without writing.
+    Read-only preview: returns the stored "next to issue" without writing.
     Requires emission point ACTIVO.
     """
     field = FIELD_BY_TYPE.get(doc_type)
@@ -339,8 +353,9 @@ def peek_next(warehouse_name: str, emission_point_code: str, doc_type: str) -> i
         frappe.throw(f"Unsupported doc_type: {doc_type}")
 
     row = _get_active_row_by_parent_code_locked(warehouse_name, emission_point_code)
-    curr = int(row.get(field) or 0)
-    return curr + 1
+
+    # If unset/zero, consider the first issue will be 1
+    return int(row.get(field) or 1)
 
 @frappe.whitelist()
 def level3_warehouse_link_query(doctype, txt, searchfield, start, page_len, filters):

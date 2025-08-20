@@ -10,6 +10,7 @@ frappe.ui.form.on("Sales Invoice", {
     forceHideNamingSeries(frm);
     ensureSerieField(frm);
     paintSeriePreview(frm);
+    warnIfNoCustomerBeforeWarehouseSelection(frm);
   },
 
   refresh(frm) {
@@ -64,19 +65,32 @@ function applyWarehouseQuery(frm) {
   const fld = frm.fields_dict.custom_jos_level3_warehouse;
   if (!fld) return;
 
+  if (!frm.doc.company) {
+    // ⚠️ Show alert just like ERPNext does
+    frappe.show_alert({
+      message: __("Please specify: Customer. It is needed to fetch Warehouse options."),
+      indicator: "orange"
+    }, 5);
+
+    // Clear the options so user doesn't select blindly
+    frm.set_df_property("custom_jos_level3_warehouse", "options", []);
+    frm.refresh_field("custom_jos_level3_warehouse");
+    return;
+  }
+
   const q = () => ({
     query: "josfe.sri_invoicing.numbering.state.level3_warehouse_link_query",
-    filters: { company: frm.doc.company || null }
+    filters: { company: frm.doc.company }
   });
 
-  // Pin the query in all three places (defensive against late overrides)
-  fld.get_query = q;                                 // runtime resolver
-  fld.df.get_query = q;                              // definition-level
-  frm.set_query("custom_jos_level3_warehouse", q);   // API path
+  // Defensive: set it in all 3 places
+  fld.get_query = q;
+  fld.df.get_query = q;
+  frm.set_query("custom_jos_level3_warehouse", q);
 
-  // Existing-only: hide “create new” (+)
   frm.set_df_property("custom_jos_level3_warehouse", "only_select", 1);
 }
+
 
 function maybe_load_pe_options(frm, clear) {
   const wh = frm.doc.custom_jos_level3_warehouse;
@@ -98,25 +112,8 @@ function maybe_load_pe_options(frm, clear) {
     if (clear) frm.set_value(target, "");
   });
 }
-// --- ensure the field is always visible & read-only ---
-function ensureSerieField(frm) {
-  const fn = "custom_sri_serie";
-  const f = frm.get_field(fn);
-  if (!f) return;
 
-  // Force properties at both df + API levels
-  f.df.hidden = 0;
-  f.df.read_only = 1;
-  f.df.reqd = 0;
-  frm.set_df_property(fn, "hidden", 0);
-  frm.set_df_property(fn, "read_only", 1);
-  frm.set_df_property(fn, "reqd", 0);
-  frm.toggle_display(fn, true);
-  f.refresh();
-}
 
-// zero-pad helper
-function z3(v) { v = String(v || "").trim(); return v ? v.padStart(3, "0") : ""; }
 
 // --- live preview without allocating a number ---
 async function paintSeriePreview(frm) {
@@ -131,13 +128,16 @@ async function paintSeriePreview(frm) {
     return;
   }
 
+  const myReq = ++__seriePreviewReq;
   try {
     const { message } = await frappe.call({
-      method: "josfe.api.naming_series.peek_next_si_series",
+      method: "josfe.sri_invoicing.numbering.naming_series.peek_next_si_series",
       args: { warehouse: wh, pe_code: peCode }
     });
+    if (myReq !== __seriePreviewReq) return; // newer request finished first
     frm.set_value("custom_sri_serie", message || "");
-  } catch (e) {
+  } catch {
+    if (myReq !== __seriePreviewReq) return;
     frm.set_value("custom_sri_serie", "");
   }
 }
@@ -163,4 +163,31 @@ function ensureSerieField(frm) {
 
   f.refresh();
   tagSerieForStyling(frm);  // <-- add this
+}
+// Avoid overlapping previews; only apply the latest response
+let __seriePreviewReq = 0;
+
+function warnIfNoCustomerBeforeWarehouseSelection(frm) {
+  const fieldname = "custom_jos_level3_warehouse";
+  const $input = frm.get_field(fieldname)?.$wrapper?.find("input[data-fieldname]");
+
+  if (!$input || !$input.length) return;
+
+  // Prevent duplicate binding
+  if ($input.data("warn-bound")) return;
+  $input.data("warn-bound", true);
+
+  $input.on("mousedown", function (e) {
+    if (!frm.doc.customer) {
+      // Prevent dropdown opening
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      frappe.msgprint({
+        title: __("Missing Customer"),
+        message: __("Please specify: <b>Customer</b>. It is needed to fetch Warehouse options."),
+        indicator: "orange"
+      });
+    }
+  });
 }

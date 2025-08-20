@@ -52,7 +52,8 @@
 .josfe-sri-serie .form-group > .clearfix {
   display: flex !important;
   justify-content: flex-end;
-  align-items: baseline;
+  align-items: baseline
+            ;
   gap: 4px;
 }
 .josfe-sri-serie .control-label,

@@ -37,6 +37,10 @@ fixtures = [
         "filters": [
             ["parent", "=", "Contact Phone"],
         ]
+    },
+    {
+        "dt": "Role",
+        "filters": [["name", "in", ["Consolidado Access"]]]
     }
 ]
 
@@ -97,7 +101,7 @@ doc_events = {
 }
 
 # js files:
-app_include_js = "/assets/josfe/js/loader.js"
+app_include_js = ["/assets/josfe/js/loader.js"]
 
 app_include_css = [
     "/assets/josfe/css/sri_seq.css",             
@@ -116,13 +120,21 @@ scheduler_events = {
     ]
 }
 
-boot_session = "josfe.user_location.session.extend_boot_with_location"
 
+# Inject selection into boot
+boot_session = "josfe.user_location.session.extend_bootinfo"
+
+# Redirect users without selection to the picker after login; log on logout
+on_login = "josfe.user_location.session.on_login_redirect"
+on_logout = "josfe.user_location.session.on_logout"
+
+
+# Permissions (keep as you already wired them, but now they read session)
 permission_query_conditions = {
-  "Sales Invoice": "josfe.user_location.permissions.get_permission_query_conditions"
+    "Sales Invoice": "josfe.user_location.permissions.get_permission_query_conditions"
 }
 has_permission = {
-  "Sales Invoice": "josfe.user_location.permissions.has_permission"
+    "Sales Invoice": "josfe.user_location.permissions.has_permission"
 }
 
 # Apps

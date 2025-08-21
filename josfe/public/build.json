@@ -1,4 +1,7 @@
 {
   "js/loader.js": "public/js/loader.js",
-  "js/phone_utils.js": "public/js/phone_utils.js"
+  "js/phone_utils.js": "public/js/phone_utils.js",
+  "js/tax_id_utils.js": "public/js/tax_id_utils.js",
+  "js/contact_html_enhancer.js": "public/js/contact_html_enhancer.js",
+  "js/form_location_lock.js": "public/js/form_location_lock.js"
 }

@@ -1,0 +1,28 @@
+/* Base look for every badge */
+.jos-badge {
+  font-weight: 800;
+  font-size: 130px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;      /* tweak shape */
+  box-shadow: 0 1px 2px rgba(0,0,0,.12);
+}
+
+/* Global color scheme (default) via CSS variables */
+.jos-badge[data-color] {
+  --jos-badge-bg: var(--jos-badge-bg, red);
+  --jos-badge-fg: var(--jos-badge-fg, red);
+  color: var(--jos-badge-fg);
+  background: color-mix(in srgb, var(--jos-badge-bg) 16%, transparent);
+}
+
+/* Per‑establishment overrides (if you prefer CSS over JS map) */
+body[data-establishment="Sucursal Guamaní - A"] .jos-badge {
+  --jos-badge-bg: red;
+  --jos-badge-fg: red;
+}
+body[data-establishment="Sucursal Mariscal - A"] .jos-badge {
+  --jos-badge-bg: red
+  --jos-badge-fg: red;
+}
+/* Add more as needed */

@@ -104,7 +104,8 @@ doc_events = {
 app_include_js = ["/assets/josfe/js/loader.js"]
 
 app_include_css = [
-    "/assets/josfe/css/sri_seq.css",             
+    "/assets/josfe/css/sri_seq.css",  
+    "/assets/josfe/css/badges.css",           
 ]
 
 # Map Doctype -> JS file (path is relative to your app's package root)
@@ -119,7 +120,6 @@ scheduler_events = {
         "josfe.sri_invoicing.numbering.validate.daily_check",
     ]
 }
-
 
 # Inject selection into boot
 boot_session = "josfe.user_location.session.extend_bootinfo"

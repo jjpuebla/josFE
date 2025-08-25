@@ -32,18 +32,19 @@ fixtures = [
             ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
         ]
     },
-    {
-        "dt": "DocField",
-        "filters": [
-            ["parent", "=", "Contact Phone"],
-        ]
-    },
+
     {
         "dt": "Role",
         "filters": [["name", "in", ["Consolidado Access"]]]
     }
 ]
-
+    # {
+    #     "dt": "DocField",
+    #     "filters": [
+    #         ["parent", "=", "Contact Phone"],
+    #     ]
+    # },
+    
 # Server Scripts
 import josfe.api.contact_hooks
 

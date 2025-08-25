@@ -105,8 +105,14 @@
 
   frappe.after_ajax(() => {
     tryDOMInjectUserMenu(document);
+    const targetOnce = (root) => {
+      if (tryDOMInjectUserMenu(root)) return true;
+      // look again if menus mount later
+      return false;
+    };
 
     const observer = new MutationObserver((records) => {
+      let done = false;
       for (const r of records) {
         for (const n of r.addedNodes) {
           if (!(n instanceof Element)) continue;
@@ -114,18 +120,16 @@
             n.matches?.(".dropdown-menu, .menu, .navbar, [role='menu']") ||
             n.querySelector?.(".dropdown-menu, .menu, .navbar, [role='menu']")
           ) {
-            tryDOMInjectUserMenu(n);
+            if (targetOnce(n)) { done = true; break; }
           }
         }
+        if (done) break;
       }
-      tryDOMInjectUserMenu(document);
+      if (!done) done = targetOnce(document);
+      if (done) { try { observer.disconnect(); } catch {} }
     });
 
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
-
-    window.addEventListener("beforeunload", () => observer.disconnect());
+    observer.observe(document.body, { childList: true, subtree: true });
   });
+
 })();

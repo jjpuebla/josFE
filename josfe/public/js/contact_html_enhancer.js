@@ -252,6 +252,10 @@
 
   function ensureObserver(frm) {
     if (frm.__contactEnhancerMO) return;
+
+    const root = frm.$wrapper && frm.$wrapper[0];
+    if (!root) return;
+
     const mo = new MutationObserver((muts) => {
       if (frm.__enhancing) return;
       let touched = false;
@@ -267,10 +271,17 @@
       if (touched) {
         if (frm.__enh_force_burst && frm.__enh_force_burst > 0) schedule(frm, { force: true });
         else schedule(frm);
+        // auto-disconnect once address UI is present
+        const box = root.querySelector(".address-box");
+        if (box) { try { mo.disconnect(); } catch {} frm.__contactEnhancerMO = null; }
       }
     });
-    mo.observe(document.body, { childList: true, subtree: true });
+
+    mo.observe(root, { childList: true, subtree: true });
     frm.__contactEnhancerMO = mo;
+
+    // also disconnect on refresh
+    frappe.ui.form.on(frm.doctype, { before_refresh() { try { mo.disconnect(); } catch {} frm.__contactEnhancerMO = null; }});
   }
 
   // --- Customer / Supplier: handle normal + Contact/Address-save return ---

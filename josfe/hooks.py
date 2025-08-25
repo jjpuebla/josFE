@@ -54,8 +54,10 @@ doc_events = {
         "validate": "josfe.api.phone_validator.validate_contact_phones"
     },
     "Customer": {
-        "validate": [
+        "before_validate": [
             "josfe.clientesetup.validadores_customer.validate_tax_id",
+        ],
+        "validate": [
             "josfe.api.phone_validator.validate_entity_phones",
             "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability"
         ],
@@ -64,8 +66,10 @@ doc_events = {
         "autoname": "josfe.overrides.customer_naming.autoname_customer"
     },
     "Supplier": {
-        "validate": [
+        "before_validate": [
             "josfe.compras.validadores_supplier.validate_tax_id",
+        ],
+        "validate": [
             "josfe.api.phone_validator.validate_entity_phones",
             "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability"
         ],
@@ -75,8 +79,10 @@ doc_events = {
 
     },
     "Company": {
-        "validate": [
+        "before_validate": [
             "josfe.my_data.validadores_company.validate_tax_id",
+        ],
+        "validate": [
             "josfe.taxidvalidator.ec_tax_validator.enforce_tax_id_immutability",
             "josfe.my_data.validadores_company.sync_company_name"
         ],

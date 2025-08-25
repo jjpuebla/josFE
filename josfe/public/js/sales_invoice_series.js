@@ -9,7 +9,7 @@ frappe.ui.form.on("Sales Invoice", {
     // after the UI builds, hide again in case core showed it
     forceHideNamingSeries(frm);
     ensureSerieField(frm);
-    paintSeriePreview(frm);
+    ensureMountedThen(() => paintSeriePreview(frm), frm, 'input[data-fieldname="naming_series"]');
     warnIfNoCustomerBeforeWarehouseSelection(frm);
   },
 
@@ -18,7 +18,7 @@ frappe.ui.form.on("Sales Invoice", {
     applyWarehouseQuery(frm);          // re-assert query on refresh
     maybe_load_pe_options(frm, false); // if warehouse already selected
     ensureSerieField(frm);
-    paintSeriePreview(frm);
+    ensureMountedThen(() => paintSeriePreview(frm), frm, 'input[data-fieldname="naming_series"]');
     applyLocationDefaults(frm);
   },
 
@@ -30,6 +30,22 @@ frappe.ui.form.on("Sales Invoice", {
     paintSeriePreview(frm);
   }
 });
+
+function ensureMountedThen(fn, frm, selector) {
+  const root = frm.$wrapper && frm.$wrapper[0];
+  if (!root) return fn();  // fallback
+
+  if (root.querySelector(selector)) return fn();  // already mounted
+
+  const mo = new MutationObserver(() => {
+    if (root.querySelector(selector)) {
+      try { mo.disconnect(); } catch {}
+      fn();
+    }
+  });
+
+  mo.observe(root, { childList: true, subtree: true });
+}
 
 function forceHideNamingSeries(frm) {
   const f = frm.get_field("naming_series");

@@ -140,9 +140,17 @@
       }
     });
     mo.observe(node, { childList: true, subtree: true });
-
-    // Save a handle for debugging/cleanup if needed
     node.__josfe_phone_mo = mo;
+
+    // disconnect when the grid wrapper gets detached or on form refresh
+    const disconnect = () => { try { mo.disconnect(); } catch {} node.__josfe_phone_mo = null; };
+    new MutationObserver((muts) => {
+      if (!document.body.contains(node)) { disconnect(); obs.disconnect(); }
+    }).observe(document.body, { childList: true, subtree: true });
+
+    if (cur_frm && cur_frm.doctype) {
+      frappe.ui.form.on(cur_frm.doctype, { before_refresh() { disconnect(); } });
+    }
   }
 
   function bindGrid(grid) {

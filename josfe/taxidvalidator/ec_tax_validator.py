@@ -24,15 +24,19 @@ def validate_and_assign_tax_id(doc, source_field, assign_tax_id=True, assign_cus
             set_entity_type(doc, "Individual")
         return
 
+    # Formato general
     if not raw_id.isdigit() or len(raw_id) not in [10, 13]:
         frappe.throw(_("La Identificación Fiscal debe tener 10 o 13 dígitos, o iniciar con 'P-' para pasaportes."))
 
+    # Validar con nuestras reglas ajustadas
     if not is_valid_ec_tax_id(raw_id):
         frappe.throw(_("Identificación Fiscal inválida (ni Cédula ni RUC)."))
 
+    # Evitar duplicados
     if frappe.db.exists(doc.doctype, {source_field: raw_id, "name": ("!=", doc.name)}):
         frappe.throw(_("Ya existe un {0} con la misma Identificación Fiscal.").format(doc.doctype))
 
+    # Asignar valores
     if assign_tax_id:
         doc.tax_id = raw_id
 
@@ -41,11 +45,13 @@ def validate_and_assign_tax_id(doc, source_field, assign_tax_id=True, assign_cus
         entity_type = "Individual" if third_digit < 6 else "Company"
         set_entity_type(doc, entity_type)
 
+
 def set_entity_type(doc, value):
     if doc.doctype == "Customer":
         doc.customer_type = value
     elif doc.doctype == "Supplier":
         doc.supplier_type = value
+
 
 def is_valid_ec_tax_id(id):
     province = int(id[:2])
@@ -60,9 +66,9 @@ def is_valid_ec_tax_id(id):
     if third < 6:
         return validate_cedula(id[:10])
     elif third == 6:
-        return validate_ruc_public(id)
+        return validate_ruc_public_skip(id)   # <- modificado
     elif third == 9:
-        return validate_ruc_private(id)
+        return validate_ruc_private_skip(id)  # <- modificado
 
     return False
 
@@ -79,37 +85,27 @@ def validate_cedula(cedula):
     return check == (10 - total % 10) % 10
 
 
-def validate_ruc_public(ruc):
-    if len(ruc) != 13 or not ruc.endswith("0001"):
-        return False
-    coeffs = [3, 2, 7, 6, 5, 4, 3, 2]
-    digits = list(map(int, ruc))
-    total = sum(d * c for d, c in zip(digits[:8], coeffs))
-    check = 11 - (total % 11)
-    return digits[8] == (0 if check == 11 else check)
+# ===== RUC con "skip" del dígito verificador =====
+
+def validate_ruc_public_skip(ruc):
+    # Solo validar longitud y terminación
+    return len(ruc) == 13 and ruc.endswith("0001")
+
+def validate_ruc_private_skip(ruc):
+    # Solo validar longitud y terminación
+    return len(ruc) == 13 and ruc.endswith("001")
 
 
-def validate_ruc_private(ruc):
-    if len(ruc) != 13 or not ruc.endswith("001"):
-        return False
-    coeffs = [4, 3, 2, 7, 6, 5, 4, 3, 2]
-    digits = list(map(int, ruc))
-    total = sum(d * c for d, c in zip(digits[:9], coeffs))
-    check = 11 - (total % 11)
-    return digits[9] == (0 if check == 11 else check)
+# --- utilidades ---
 
 def _norm(v):
     return (v or "").strip().upper()
 
 def enforce_tax_id_immutability(doc, method=None):
-    # New doc? Nothing to enforce.
     if doc.is_new():
         return
 
-    # Reload old to compare
     old_doc = frappe.get_doc(doc.doctype, doc.name)
-
-    # Map your custom field per Doctype
     custom_field_map = {
         "Customer": "custom_jos_tax_id_validador",
         "Supplier": "custom_jos_ruc_supplier",
@@ -117,10 +113,8 @@ def enforce_tax_id_immutability(doc, method=None):
     }
     custom_field = custom_field_map.get(doc.doctype)
 
-    # Core tax_id cannot change after save
     if _norm(old_doc.tax_id) and _norm(doc.tax_id) != _norm(old_doc.tax_id):
         frappe.throw(_("El campo Tax ID no puede ser modificado una vez guardado."))
 
-    # Custom tax field cannot change after save
     if custom_field and _norm(old_doc.get(custom_field)) and _norm(doc.get(custom_field)) != _norm(old_doc.get(custom_field)):
         frappe.throw(_("El campo de identificación tributaria no puede ser modificado."))

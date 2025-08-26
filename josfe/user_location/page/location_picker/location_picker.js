@@ -1,9 +1,9 @@
 // apps/josfe/josfe/user_location/page/location_picker/location_picker.js
-frappe.pages['location-picker'].on_page_load = function (wrapper) {
+frappe.pages["location-picker"].on_page_load = function (wrapper) {
   const page = frappe.ui.make_app_page({
     parent: wrapper,
-    title: 'Selecciona tu Establecimiento',
-    single_column: true
+    title: "Selecciona tu Establecimiento",
+    single_column: true,
   });
 
   const tpl = `
@@ -29,24 +29,29 @@ frappe.pages['location-picker'].on_page_load = function (wrapper) {
   `;
   $(page.body).html(tpl);
 
-  const $select = $(page.body).find('#josfe-loc-select');
-  const $btnConfirm = $(page.body).find('#josfe-confirm');
-  const $btnClear = $(page.body).find('#josfe-clear');
-  const $msg = $(page.body).find('#josfe-msg');
+  const $select = $(page.body).find("#josfe-loc-select");
+  const $btnConfirm = $(page.body).find("#josfe-confirm");
+  const $btnClear = $(page.body).find("#josfe-clear");
+  const $msg = $(page.body).find("#josfe-msg");
 
   let selected = null;
 
-  function showMsg(text, isErr=false) {
+  function showMsg(text, isErr = false) {
     if (!text) return $msg.hide();
-    $msg.text(text).css('color', isErr ? '#c0392b' : '#6c757d').show();
+    $msg.text(text).css("color", isErr ? "#c0392b" : "#6c757d").show();
   }
 
-  // log what boot thinks at load
-  console.log("[josfe:picker] boot.jos_selected_establishment at load:", frappe.boot?.jos_selected_establishment ?? null);
+  // log boot value at load (debug aid)
+  // eslint-disable-next-line no-console
+  console.log(
+    "[josfe:picker] boot.jos_selected_establishment at load:",
+    frappe.boot?.jos_selected_establishment ?? null
+  );
 
-  // load options
-  showMsg('Cargando opciones...');
-  frappe.call('josfe.user_location.session.get_establishment_options')
+  // Load options from server
+  showMsg("Cargando opciones...");
+  frappe
+    .call("josfe.user_location.session.get_establishment_options")
     .then((r) => {
       const msg = r.message || {};
       const whs = msg.warehouses || [];
@@ -54,14 +59,14 @@ frappe.pages['location-picker'].on_page_load = function (wrapper) {
       const preselected = msg.selected || null;
 
       whs.forEach((w) => {
-        const opt = document.createElement('option');
+        const opt = document.createElement("option");
         opt.value = w.name;
         opt.textContent = w.label || w.name;
         $select.append(opt);
       });
 
       if (allowConsolidado) {
-        const opt = document.createElement('option');
+        const opt = document.createElement("option");
         opt.value = "__CONSOLIDADO__";
         opt.textContent = "Consolidado";
         $select.append(opt);
@@ -70,56 +75,80 @@ frappe.pages['location-picker'].on_page_load = function (wrapper) {
       if (preselected) {
         $select.val(preselected);
         selected = preselected;
-        $btnConfirm.prop('disabled', false);
+        $btnConfirm.prop("disabled", false);
       }
 
-      showMsg('');
+      showMsg("");
     })
     .catch((e) => {
+      // eslint-disable-next-line no-console
       console.error(e);
-      showMsg('Error al cargar opciones.', true);
+      showMsg("Error al cargar opciones.", true);
     });
 
-  // selection change
-  $select.on('change', function () {
+  // Handle selection change
+  $select.on("change", function () {
     selected = this.value || null;
+    // eslint-disable-next-line no-console
     console.log("[josfe:picker] user changed selection to:", selected);
-    $btnConfirm.prop('disabled', !selected);
+    $btnConfirm.prop("disabled", !selected);
   });
 
-  // confirm (no full reload)
-  $btnConfirm.on('click', function () {
+  // Confirm (no full reload — deterministic navigation)
+  $btnConfirm.on("click", function () {
     if (!selected) return;
+
+    // eslint-disable-next-line no-console
     console.log("[josfe:picker] confirming selection:", selected);
+
+    // Avoid double click during save
+    $btnConfirm.prop("disabled", true);
+    $btnClear.prop("disabled", true);
+    showMsg("Guardando selección...");
+
+    $btnConfirm.prop("disabled", true);
+    $btnClear.prop("disabled", true);
+    showMsg("Guardando selección...");
 
     frappe.call('josfe.user_location.session.set_selected_establishment', { warehouse: selected })
       .then((r) => {
         const val = (r.message || {}).selected || null;
         console.log("[josfe:picker] saved selection:", val);
 
-        // 1) update boot in-memory so guards/forms pass immediately
-        if (!frappe.boot) frappe.boot = {};
         frappe.boot.jos_selected_establishment = val;
+        try {
+          localStorage.setItem("josfe_selected_establishment", val || "");
 
-        // 2) persist for new tabs
-        try { localStorage.setItem("josfe_selected_establishment", val || ""); } catch {}
+          // 🔁 fire synthetic storage event in this tab (helps badge rerender instantly)
+          window.dispatchEvent(new StorageEvent("storage", {
+            key: "josfe_selected_establishment",
+            newValue: val
+          }));
+        } catch {}
+        if (typeof window.josfeSetEstablishment === "function") {
+          try { window.josfeSetEstablishment(val); } catch {}
+        }
 
-        frappe.show_alert('Establecimiento seleccionado');
-
-        // go to Desk home (or any target)
-        frappe.set_route("");
+        frappe.show_alert("Establecimiento seleccionado");
+        frappe.set_route("app");  // ✅ safe route
       })
       .catch((e) => {
         console.error(e);
-        showMsg('No se pudo guardar la selección.', true);
+        showMsg("No se pudo guardar la selección.", true);
+      })
+      .then(() => {  // ✅ cleanup here
+        $btnConfirm.prop("disabled", !selected);
+        $btnClear.prop("disabled", false);
       });
+
   });
-  
-  // clear (local, not saved)
-  $btnClear.on('click', function () {
-    $select.val('');
+
+  // Clear (local, not saved)
+  $btnClear.on("click", function () {
+    $select.val("");
     selected = null;
-    $btnConfirm.prop('disabled', true);
+    $btnConfirm.prop("disabled", true);
+    // eslint-disable-next-line no-console
     console.log("[josfe:picker] cleared pending selection (not saved)");
   });
 };

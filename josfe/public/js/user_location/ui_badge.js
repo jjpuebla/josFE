@@ -62,15 +62,17 @@
 
   function getSelection() {
     try {
-      const v = localStorage.getItem(STORAGE_KEY) || "";
-      const trimmed = v.trim() || null;
-      log("getSelection() →", trimmed);
-      return trimmed;
-    } catch (err) {
-      log("getSelection() error", err);
+      const localVal = (localStorage.getItem(STORAGE_KEY) || "").trim();
+      const bootVal = (frappe?.boot?.jos_selected_establishment || "").trim();
+
+      if (localVal) return localVal;
+      if (bootVal) return bootVal;
+      return null;
+    } catch {
       return null;
     }
   }
+
 
   function findNavbarTarget() {
     for (const sel of NAV_SELECTORS) {
@@ -154,12 +156,12 @@
     }
 
     window.addEventListener("storage", (e) => {
-      if (e.key === STORAGE_KEY) rerender();
-    });
-    window.addEventListener("hashchange", rerender);
-    window.addEventListener("popstate", rerender);
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) rerender();
+      if (e.key !== STORAGE_KEY) return;
+
+      const el = document.getElementById("jos-warehouse-icon");
+      if (el?.parentNode) el.parentNode.removeChild(el);
+      badgeDone = false;
+      rerender();
     });
   }
 

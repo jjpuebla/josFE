@@ -91,7 +91,7 @@ doc_events = {
         "validate": [
             "josfe.sri_invoicing.validations.warehouse.validate_warehouse_sri",
             "josfe.sri_invoicing.validations.warehouse.validate_no_duplicate_pe_per_parent",
-    ],
+        ],
     },
     "Sales Invoice": {        
         "autoname": "josfe.sri_invoicing.numbering.serie_autoname.si_autoname",
@@ -101,10 +101,11 @@ doc_events = {
         "on_cancel": "josfe.sri_invoicing.queue.api.on_sales_invoice_cancel",
     },
     "SRI Puntos Emision": {
-        "on_trash": "josfe.sri_invoicing.warehouse_guards.prevent_deleting_emission_point"
-    },
-
-    
+        "on_trash": [
+            "josfe.sri_invoicing.warehouse_guards.prevent_deleting_emission_point",
+            "josfe.sri_invoicing.numbering.on_trash_hooks.handle_pe_delete"
+        ],
+    }
 }
 
 # js files:

@@ -7,6 +7,7 @@ from typing import Optional
 SESSION_KEY = "jos_selected_establishment"
 CONSOLIDADO_MAGIC = "__CONSOLIDADO__"
 
+
 # ---------- internal helpers ----------
 
 def _get_session_selected() -> Optional[str]:

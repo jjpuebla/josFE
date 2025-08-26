@@ -13,7 +13,17 @@
   frappe.after_ajax(() => {
     const bootSel = frappe.boot?.jos_selected_establishment ?? null;
     log("boot.jos_selected_establishment:", bootSel);
-    if (bootSel) localStorage.setItem(STORAGE_KEY, bootSel);
+    const current = (localStorage.getItem(STORAGE_KEY) || "").trim();
+    if (!current && bootSel) {
+    localStorage.setItem(STORAGE_KEY, bootSel);
+    }
+
+    
+    // ✅ Redirect if still nothing selected
+    if (!bootSel && !current) {
+      log("No selection found. Redirecting to location-picker.");
+      frappe.set_route("location-picker");
+    }
   });
 
   // ------------------------------------------
@@ -23,6 +33,7 @@
     if (typeof patchLogoutClearWarehouse === "function") {
       patchLogoutClearWarehouse();
     }
+  
   });
 
   // ------------------------------------------

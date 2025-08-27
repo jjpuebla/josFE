@@ -102,8 +102,7 @@ doc_events = {
     },
     "SRI Puntos Emision": {
         "on_trash": [
-            "josfe.sri_invoicing.warehouse_guards.prevent_deleting_emission_point",
-            "josfe.sri_invoicing.numbering.on_trash_hooks.handle_pe_delete"
+            "josfe.sri_invoicing.warehouse_guards.prevent_deleting_emission_point"
         ],
     }
 }

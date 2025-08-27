@@ -1,5 +1,6 @@
 import frappe
 from josfe.sri_invoicing.numbering.state import next_sequential
+from frappe.utils import cint
 
 def _z3(v): 
     return str(v or "").strip().zfill(3)
@@ -68,3 +69,35 @@ def si_autoname(doc, method):
 def si_before_save(doc, method):
     # Relleno defensivo para resistir cambios del lado del cliente
     _ensure_sri_fields(doc)
+
+import frappe
+from frappe.utils import cint
+
+def sync_pe_next(est_code, ep_code, label, last_used):
+    """Ensure PE row shows next available sequential (last_used + 1)."""
+    fieldmap = {
+        "Factura": "seq_factura",
+        "Nota de Crédito": "seq_nc",
+        "Nota de Débito": "seq_nd",
+        "Comprobante Retención": "seq_ret",
+        "Liquidación de Compra": "seq_liq",
+        "Guía de Remisión": "seq_gr",
+    }
+    fn = fieldmap.get(label)
+    if not fn:
+        return
+
+    # find the PE row
+    pe = frappe.get_all(
+        "SRI Puntos Emision",
+        filters={"parenttype": "Warehouse",
+                 "parentfield": "custom_sri_puntos_emision",
+                 "emission_point_code": ep_code},
+        fields=["name"],
+        limit=1,
+    )
+    if not pe:
+        return
+
+    next_val = cint(last_used) + 1
+    frappe.db.set_value("SRI Puntos Emision", pe[0].name, fn, next_val)

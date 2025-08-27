@@ -233,7 +233,7 @@ def initiate_or_edit(
     updates_dict=None,
     note: str = "",
     emission_point_code: str | None = None,
-    establishment_code: str | None = None,  # accepts EC if missing
+    establishment_code: str | None = None,
 ):
     """
     INIT (initiated=0): set provided seq_* and mark initiated=1 (UI enforces all six ≥ 1).
@@ -242,24 +242,24 @@ def initiate_or_edit(
     """
     _require_privileged()
 
-    # Normalize updates
     if isinstance(updates_dict, str):
         updates_dict = json.loads(updates_dict or "{}")
     updates_dict = updates_dict or {}
 
-    # Ensure Warehouse has a saved 3-digit establishment code (from client, if needed)
+    #**********log************/
+    frappe.log_error(
+    title="SRI DEBUG RAW INPUT",
+    message=f"Received updates_dict={updates_dict}"
+)
+    #**********log************/
+
+    # Ensure Warehouse has establishment_code
     if establishment_code:
         establishment_code = (establishment_code or "").strip()
         if establishment_code.isdigit() and len(establishment_code) == 3:
             current = (frappe.get_cached_value("Warehouse", warehouse_name, "custom_establishment_code") or "").strip()
             if not current:
-                frappe.db.set_value(
-                    "Warehouse",
-                    warehouse_name,
-                    "custom_establishment_code",
-                    establishment_code,
-                    update_modified=False,
-                )
+                frappe.db.set_value("Warehouse", warehouse_name, "custom_establishment_code", establishment_code, update_modified=False)
                 frappe.clear_document_cache("Warehouse", warehouse_name)
 
     def inner():
@@ -288,20 +288,57 @@ def initiate_or_edit(
             if next_val < 1:
                 frappe.throw(f"{doc_type}: next value must be ≥ 1.")
 
-            # Convert "next to issue" → stored "current"
-            proposed_current = next_val - 1
+            # "next to issue" in UI → store "current" internally
+            proposed_current = next_val
             old_val = int(row.get(field) or 0)
 
             if action == "EDIT":
                 if proposed_current < old_val:
-                    frappe.throw(
-                        f"{doc_type}: new value {next_val} would lower current to {proposed_current} (< {old_val})."
-                    )
+                    frappe.throw(f"{doc_type}: new value {next_val} would lower current to {proposed_current} (< {old_val}).")
                 if proposed_current == old_val:
-                    continue  # no-op
+                    continue
 
             updates[field] = proposed_current
             _log(warehouse_name, row.get("emission_point_code"), doc_type, action, old_val, proposed_current, note)
+
+        frappe.log_error(
+            title="SRI DEBUG initiate_or_edit",
+            message=f"Row={row['name']} Action={action} Updates={updates}"
+        )
+
+
+        # Apply updates
+        if updates:
+            for field, new_current in updates.items():
+                frappe.db.set_value(CHILD_DOCTYPE, row["name"], field, new_current, update_modified=False)
+
+        frappe.log_error(
+            title="SRI DEBUG initiate_or_edit",
+            message=f"DB.set_value applied for {row['name']} Fields={list(updates.keys())}"
+        )
+
+
+
+        # Always mark as initiated and ensure estado is Active
+        frappe.db.set_value(CHILD_DOCTYPE, row["name"], "initiated", 1, update_modified=False)
+        if not row.get("estado") or str(row.get("estado")).strip().lower() in ("", "inactivo", "inactive"):
+            frappe.db.set_value(CHILD_DOCTYPE, row["name"], "estado", _active_estado_value(), update_modified=False)
+
+        #********LOG
+        latest = _row_by_name_locked(row["name"])
+        frappe.log_error(
+            title="SRI DEBUG initiate_or_edit",
+            message=f"Returning row values: {latest}"
+        )
+        return latest
+
+
+        # Return the fresh row
+        return _row_by_name_locked(row["name"])
+
+    # ✅ FIX: actually run inner() inside retry wrapper
+    return _with_retry(inner)
+
 
 @frappe.whitelist()
 def next_sequential(warehouse_name: str, emission_point_code: str, doc_type: str) -> int:

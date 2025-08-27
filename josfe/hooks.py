@@ -9,27 +9,27 @@ fixtures = [
     {
         "dt": "Client Script",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos"]]
         ]
     },
 
     {
         "dt": "Custom Field",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos"]]
         ]
     },
 
     {
         "dt": "Property Setter",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos"]]
         ]
     },
     {
         "dt": "DocType",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos"]]
         ]
     },
 
@@ -99,11 +99,6 @@ doc_events = {
         "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit",
         "on_submit": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_submit",
         "on_cancel": "josfe.sri_invoicing.queue.api.on_sales_invoice_cancel",
-    },
-    "SRI Puntos Emision": {
-        "on_trash": [
-            "josfe.sri_invoicing.warehouse_guards.prevent_deleting_emission_point"
-        ],
     }
 }
 

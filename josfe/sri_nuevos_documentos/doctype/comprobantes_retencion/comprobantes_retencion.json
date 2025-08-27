@@ -1,0 +1,48 @@
+{
+  "doctype": "DocType",
+  "name": "Comprobantes Retencion",
+  "module": "sri_invoicing",
+  "custom": 1,
+  "is_submittable": 1,
+  "fields": [
+    {
+      "fieldname": "custom_sri_serie",
+      "fieldtype": "Data",
+      "label": "SRI Serie (Establishment)",
+      "reqd": 1,
+      "length": 3
+    },
+    {
+      "fieldname": "custom_sri_emission_point",
+      "fieldtype": "Data",
+      "label": "Emission Point",
+      "reqd": 1,
+      "length": 3
+    },
+    {
+      "fieldname": "sri_sequential_assigned",
+      "fieldtype": "Int",
+      "label": "Sequential Assigned",
+      "reqd": 1
+    },
+    {
+      "fieldname": "party_type",
+      "fieldtype": "Select",
+      "label": "Party Type",
+      "options": "Customer\nSupplier",
+      "reqd": 1
+    },
+    {
+      "fieldname": "party",
+      "fieldtype": "Dynamic Link",
+      "options": "party_type",
+      "label": "Party"
+    },
+    {
+      "fieldname": "posting_date",
+      "fieldtype": "Date",
+      "label": "Posting Date",
+      "reqd": 1
+    }
+  ]
+}

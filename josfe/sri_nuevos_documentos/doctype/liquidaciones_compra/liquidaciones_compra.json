@@ -1,0 +1,41 @@
+{
+  "doctype": "DocType",
+  "name": "Liquidaciones Compra",
+  "module": "sri_invoicing",
+  "custom": 1,
+  "is_submittable": 1,
+  "fields": [
+    {
+      "fieldname": "custom_sri_serie",
+      "fieldtype": "Data",
+      "label": "SRI Serie (Establishment)",
+      "reqd": 1,
+      "length": 3
+    },
+    {
+      "fieldname": "custom_sri_emission_point",
+      "fieldtype": "Data",
+      "label": "Emission Point",
+      "reqd": 1,
+      "length": 3
+    },
+    {
+      "fieldname": "sri_sequential_assigned",
+      "fieldtype": "Int",
+      "label": "Sequential Assigned",
+      "reqd": 1
+    },
+    {
+      "fieldname": "supplier",
+      "fieldtype": "Link",
+      "options": "Supplier",
+      "label": "Supplier"
+    },
+    {
+      "fieldname": "posting_date",
+      "fieldtype": "Date",
+      "label": "Posting Date",
+      "reqd": 1
+    }
+  ]
+}

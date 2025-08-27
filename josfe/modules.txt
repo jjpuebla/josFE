@@ -4,3 +4,4 @@ compras
 sri_invoicing
 my_data
 user_location
+SRI_Nuevos_Documentos

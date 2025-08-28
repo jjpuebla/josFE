@@ -54,43 +54,56 @@
     }
   }
 
-  async function applyToForm(frm, wh) {
-    if (!wh) {
-      frappe.show_alert({ message: "Debes seleccionar un Establecimiento", indicator: "red" });
-      frappe.set_route("location-picker");
-      return;
-    }
+async function applyToForm(frm, wh) {
+  console.log("[josfe:lock] applyToForm start → doctype:", frm.doctype, "WH:", wh);
 
-    // Set WH on header field
-    if (frm.doc.custom_jos_level3_warehouse !== wh) {
-      frm.set_value("custom_jos_level3_warehouse", wh);
-    }
+  if (!wh) {
+    frappe.show_alert({ message: "Debes seleccionar un Establecimiento", indicator: "red" });
+    frappe.set_route("location-picker");
+    return;
+  }
 
-    // If new Sales Invoice → auto-fill emission point with active PE
-    if (frm.is_new() && frm.doctype === "Sales Invoice") {
-      const pe = await fetchActivePE(wh);
-      if (pe && frm.doc.custom_jos_sri_emission_point_code !== pe) {
-        frm.set_value("custom_jos_sri_emission_point_code", pe);
-      }
-    }
+  // Set WH on header field
+  if (frm.doc.custom_jos_level3_warehouse !== wh) {
+    console.log("[josfe:lock] setting custom_jos_level3_warehouse =", wh);
+    frm.set_value("custom_jos_level3_warehouse", wh);
+  }
 
-    // Lock both fields (read-only, no hyperlink)
-    lockFields(frm);
+  // --- Always refresh PE from active row ---
+  if (frm.doctype === "Sales Invoice") {
+    const pe = await fetchActivePE(wh);
+    console.log("[josfe:lock] fetched active PE for", wh, "→", pe);
 
-    // Default for "set_warehouse" field (if exists)
-    const fld = frm.fields_dict?.set_warehouse;
-    if (fld && fld.df) {
-      fld.df.default = wh;
-      try { frm.refresh_field("set_warehouse"); } catch (e) {}
-    }
-
-    // Lock item warehouses to current WH
-    if (frm.fields_dict.items) {
-      const grid = frm.fields_dict.items.grid;
-      const whField = grid.get_field("warehouse");
-      if (whField) whField.get_query = () => ({ filters: { name: wh } });
+    if (pe && frm.doc.custom_jos_sri_emission_point_code !== pe) {
+      console.log("[josfe:lock] updating custom_jos_sri_emission_point_code to", pe);
+      frm.set_value("custom_jos_sri_emission_point_code", pe);
     }
   }
+
+  // Lock both fields
+  lockFields(frm);
+
+  // Default for "set_warehouse" field (if exists)
+  const fld = frm.fields_dict?.set_warehouse;
+  if (fld && fld.df) {
+    fld.df.default = wh;
+    try { frm.refresh_field("set_warehouse"); } catch (e) {}
+    console.log("[josfe:lock] set_warehouse defaulted to", wh);
+  }
+
+  // Lock item warehouses to current WH
+  if (frm.fields_dict.items) {
+    const grid = frm.fields_dict.items.grid;
+    const whField = grid.get_field("warehouse");
+    if (whField) {
+      whField.get_query = () => ({ filters: { name: wh } });
+      console.log("[josfe:lock] item warehouses restricted to", wh);
+    }
+  }
+
+  console.log("[josfe:lock] applyToForm end");
+}
+
 
   async function enforce(frm) {
     const wh = await fetchSelectedWH();

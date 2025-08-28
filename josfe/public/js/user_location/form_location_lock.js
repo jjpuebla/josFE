@@ -55,7 +55,6 @@
   }
 
 async function applyToForm(frm, wh) {
-  console.log("[josfe:lock] applyToForm start → doctype:", frm.doctype, "WH:", wh);
 
   if (!wh) {
     frappe.show_alert({ message: "Debes seleccionar un Establecimiento", indicator: "red" });
@@ -65,17 +64,14 @@ async function applyToForm(frm, wh) {
 
   // Set WH on header field
   if (frm.doc.custom_jos_level3_warehouse !== wh) {
-    console.log("[josfe:lock] setting custom_jos_level3_warehouse =", wh);
     frm.set_value("custom_jos_level3_warehouse", wh);
   }
 
   // --- Always refresh PE from active row ---
   if (frm.doctype === "Sales Invoice") {
     const pe = await fetchActivePE(wh);
-    console.log("[josfe:lock] fetched active PE for", wh, "→", pe);
 
     if (pe && frm.doc.custom_jos_sri_emission_point_code !== pe) {
-      console.log("[josfe:lock] updating custom_jos_sri_emission_point_code to", pe);
       frm.set_value("custom_jos_sri_emission_point_code", pe);
     }
   }
@@ -88,7 +84,6 @@ async function applyToForm(frm, wh) {
   if (fld && fld.df) {
     fld.df.default = wh;
     try { frm.refresh_field("set_warehouse"); } catch (e) {}
-    console.log("[josfe:lock] set_warehouse defaulted to", wh);
   }
 
   // Lock item warehouses to current WH
@@ -97,11 +92,9 @@ async function applyToForm(frm, wh) {
     const whField = grid.get_field("warehouse");
     if (whField) {
       whField.get_query = () => ({ filters: { name: wh } });
-      console.log("[josfe:lock] item warehouses restricted to", wh);
     }
   }
 
-  console.log("[josfe:lock] applyToForm end");
 }
 
 

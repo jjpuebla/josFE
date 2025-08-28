@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "creation": "2025-08-27 15:14:39.551242",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "custom_sri_serie",
+  "custom_jos_sri_emission_point_code",
+  "sri_sequential_assigned",
+  "party_type",
+  "party",
+  "posting_date",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "custom_sri_serie",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "SRI Serie (Establishment)",
+   "length": 3,
+   "reqd": 1
+  },
+  {
+   "fieldname": "custom_jos_sri_emission_point_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Emission Point",
+   "length": 3,
+   "reqd": 1
+  },
+  {
+   "fieldname": "sri_sequential_assigned",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequential Assigned",
+   "reqd": 1
+  },
+  {
+   "fieldname": "party_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Party Type",
+   "options": "Customer\nSupplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "party",
+   "fieldtype": "Dynamic Link",
+   "label": "Party",
+   "options": "party_type"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Comprobantes Retencion",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-08-28 07:55:01.366568",
+ "modified_by": "Administrator",
+ "module": "sri_invoicing",
+ "name": "Comprobantes Retencion",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

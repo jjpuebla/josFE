@@ -124,20 +124,20 @@ scheduler_events = {
 }
 
 # Inject selection into boot
-boot_session = "josfe.user_location.session.extend_bootinfo"
+boot_session = "josfe.user_location.session.inject_selected_warehouse"
+
+permission_query_conditions = {
+    "Sales Invoice": "josfe.user_location.permissions.si_query",
+}
+
+has_permission = {
+    "Sales Invoice": "josfe.user_location.permissions.si_has_permission",
+}
 
 # Redirect users without selection to the picker after login; log on logout
 on_login = "josfe.user_location.session.on_login_redirect"
 on_logout = "josfe.user_location.session.on_logout"
 
-
-# Permissions (keep as you already wired them, but now they read session)
-permission_query_conditions = {
-    "Sales Invoice": "josfe.user_location.permissions.get_permission_query_conditions"
-}
-has_permission = {
-    "Sales Invoice": "josfe.user_location.permissions.has_permission"
-}
 
 # Apps
 # ------------------

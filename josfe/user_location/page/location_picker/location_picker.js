@@ -1,4 +1,3 @@
-// apps/josfe/josfe/user_location/page/location_picker/location_picker.js
 frappe.pages["location-picker"].on_page_load = function (wrapper) {
   const page = frappe.ui.make_app_page({
     parent: wrapper,
@@ -35,20 +34,15 @@ frappe.pages["location-picker"].on_page_load = function (wrapper) {
   const $msg = $(page.body).find("#josfe-msg");
 
   let selected = null;
+  const CHANNEL = "josfe_establishment";
+  const SIGNAL_KEY = "josfe_establishment_signal";
 
   function showMsg(text, isErr = false) {
     if (!text) return $msg.hide();
     $msg.text(text).css("color", isErr ? "#c0392b" : "#6c757d").show();
   }
 
-  // log boot value at load (debug aid)
-  // eslint-disable-next-line no-console
-  console.log(
-    "[josfe:picker] boot.jos_selected_establishment at load:",
-    frappe.boot?.jos_selected_establishment ?? null
-  );
-
-  // Load options from server
+  // Load options
   showMsg("Cargando opciones...");
   frappe
     .call("josfe.user_location.session.get_establishment_options")
@@ -81,74 +75,70 @@ frappe.pages["location-picker"].on_page_load = function (wrapper) {
       showMsg("");
     })
     .catch((e) => {
-      // eslint-disable-next-line no-console
       console.error(e);
       showMsg("Error al cargar opciones.", true);
     });
 
-  // Handle selection change
   $select.on("change", function () {
     selected = this.value || null;
-    // eslint-disable-next-line no-console
-    console.log("[josfe:picker] user changed selection to:", selected);
     $btnConfirm.prop("disabled", !selected);
   });
 
-  // Confirm (no full reload — deterministic navigation)
+  // Confirm → save, update boot, broadcast to other tabs, update badge, go home
   $btnConfirm.on("click", function () {
     if (!selected) return;
 
-    // eslint-disable-next-line no-console
-    console.log("[josfe:picker] confirming selection:", selected);
-
-    // Avoid double click during save
     $btnConfirm.prop("disabled", true);
     $btnClear.prop("disabled", true);
     showMsg("Guardando selección...");
 
-    $btnConfirm.prop("disabled", true);
-    $btnClear.prop("disabled", true);
-    showMsg("Guardando selección...");
-
-    frappe.call('josfe.user_location.session.set_selected_establishment', { warehouse: selected })
+    frappe
+      .call("josfe.user_location.session.set_selected_warehouse", {
+        warehouse: selected,
+        set_user_permission: 0,
+      })
       .then((r) => {
-        const val = (r.message || {}).selected || null;
-        console.log("[josfe:picker] saved selection:", val);
+        const val = (r.message || {}).warehouse || selected;
 
+        // Mirror in this tab
         frappe.boot.jos_selected_establishment = val;
+
+        // BroadcastChannel
         try {
-          localStorage.setItem("josfe_selected_establishment", val || "");
-
-          // 🔁 fire synthetic storage event in this tab (helps badge rerender instantly)
-          window.dispatchEvent(new StorageEvent("storage", {
-            key: "josfe_selected_establishment",
-            newValue: val
-          }));
+          if ("BroadcastChannel" in window) {
+            const bc = new BroadcastChannel(CHANNEL);
+            bc.postMessage({ type: "changed", value: val, at: Date.now() });
+          }
         } catch {}
-        if (typeof window.josfeSetEstablishment === "function") {
-          try { window.josfeSetEstablishment(val); } catch {}
-        }
 
+        // localStorage signal (fallback, signal only)
+        try {
+          localStorage.setItem(
+            SIGNAL_KEY,
+            JSON.stringify({ value: val, at: Date.now() })
+          );
+        } catch {}
+
+        // Update UI
+        if (typeof window.injectWarehouseBadge === "function") {
+          window.injectWarehouseBadge();
+        }
         frappe.show_alert("Establecimiento seleccionado");
-        frappe.set_route("app");  // ✅ safe route
+        frappe.set_route("desk");
       })
       .catch((e) => {
         console.error(e);
         showMsg("No se pudo guardar la selección.", true);
       })
-      .then(() => {  // ✅ cleanup here
+      .then(() => {
         $btnConfirm.prop("disabled", !selected);
         $btnClear.prop("disabled", false);
       });
-
   });
 
-  // Clear (local, not saved)
   $btnClear.on("click", function () {
     $select.val("");
     selected = null;
     $btnConfirm.prop("disabled", true);
-    // eslint-disable-next-line no-console
-    console.log("[josfe:picker] cleared pending selection (not saved)");
   });
 };

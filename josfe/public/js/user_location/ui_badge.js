@@ -1,179 +1,111 @@
 // apps/josfe/josfe/public/js/user_location/ui_badge.js
 (() => {
-  if (window.__JOSFE_BADGE_INSTALLED__) return;
-  window.__JOSFE_BADGE_INSTALLED__ = true;
+  const CHANNEL = "josfe_establishment";
+  const SIGNAL_KEY = "josfe_establishment_signal";
 
-  const DEBUG = false;
-  const log = (...a) => DEBUG && console.log("[josfe:badge]", ...a);
+  const PALETTE = [
+    "#2563eb", "#059669", "#7c3aed", "#ea580c", "#0ea5e9",
+    "#16a34a", "#9333ea", "#dc2626", "#f59e0b", "#475569"
+  ];
 
-  const STORAGE_KEY = "josfe_selected_establishment";
-  const NAV_SELECTORS = [".navbar-home", ".navbar .navbar-brand", ".navbar"];
-
-  const STYLE_MAP = {
-    "Sucursal Guamaní - A": { letter: "G", color: "#27ae60" },
-    "Sucursal Mariscal - A": { letter: "M", color: "#f1c40f" },
-    "Sucursal Primax - A":  { letter: "P", color: "#3498db" },
-    "__CONSOLIDADO__":      { letter: "T", color: "#2c3e50" }
+  const CUSTOM_COLORS = {
+  "Sucursal Primax - A": "#b6ad06ff",   // red
+  "Sucursal Mariscal - A": "#459eceff", // blue
+  "Sucursal Guamaní - A": "#35c116ff", // blue
+  // add more if needed
   };
 
-  // Public mini-API
-  window.josfeBadge = {
-    setStyleMap(obj) {
-      Object.assign(STYLE_MAP, obj || {});
-      rerender();
-    },
-    refresh: rerender
-  };
-
-  function hexToRgba(hex, alpha = 0.16) {
-    if (typeof hex !== "string" || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex)) {
-      return `rgba(127,140,141,${alpha})`;
+  function hashStr(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) {
+      h = ((h << 5) - h) + s.charCodeAt(i);
+      h |= 0;
     }
-    let r, g, b;
-    if (hex.length === 4) {
-      r = parseInt(hex[1] + hex[1], 16);
-      g = parseInt(hex[2] + hex[2], 16);
-      b = parseInt(hex[3] + hex[3], 16);
-    } else {
-      r = parseInt(hex.slice(1,3), 16);
-      g = parseInt(hex.slice(3,5), 16);
-      b = parseInt(hex.slice(5,7), 16);
-    }
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    return Math.abs(h);
   }
 
-  function ensureStyleTag() {
-    const ID = "josfe-badge-style";
-    if (document.getElementById(ID)) return;
-    const s = document.createElement("style");
-    s.id = ID;
-    s.textContent = `
-      .jos-badge {
-        display:inline-flex; align-items:center; justify-content:center;
-        font-weight:700; font-size:13px; line-height:1;
-        width:22px; height:22px; border-radius:6px; margin-left:6px;
-        user-select:none; box-shadow:0 1px 2px rgba(0,0,0,.08);
-        color: var(--jos-badge-fg, #7f8c8d);
-        background: var(--jos-badge-bg-soft, rgba(127,140,141,.14));
-      }
-    `;
-    document.head.appendChild(s);
+  function getWH() {
+    return (frappe.boot?.jos_selected_establishment || "").trim();
   }
 
-  function getSelection() {
-    try {
-      const localVal = (localStorage.getItem(STORAGE_KEY) || "").trim();
-      const bootVal = (frappe?.boot?.jos_selected_establishment || "").trim();
-
-      if (localVal) return localVal;
-      if (bootVal) return bootVal;
-      return null;
-    } catch {
-      return null;
-    }
+  function computeTexts(full) {
+    // Expect labels like "003 - Sucursal Mariscal - A"
+    const code = full.split(" - ")[0];
+    if (code && code.length <= 8) return { short: code, title: full };
+    return { short: full, title: full };
   }
 
+  function draw(fullText) {
+    const navbar = document.querySelector(".navbar .navbar-nav") || document.querySelector(".navbar");
+    if (!navbar) return;
 
-  function findNavbarTarget() {
-    for (const sel of NAV_SELECTORS) {
-      const el = document.querySelector(sel);
-      if (el) return el;
-    }
-    return null;
-  }
+    const old = navbar.querySelector(".josfe-badge");
+    if (old) old.remove();
 
-  function makeBadge(letter, color, titleText) {
-    ensureStyleTag();
-    const wrap = document.createElement("span");
-    wrap.id = "jos-warehouse-icon";
+    if (!fullText) return;
+
+    const { short, title } = computeTexts(fullText);
+    const color = CUSTOM_COLORS[fullText] || PALETTE[hashStr(fullText) % PALETTE.length];
 
     const badge = document.createElement("span");
-    badge.className = "jos-badge";
-    badge.title = titleText || letter;
-    badge.style.setProperty("--jos-badge-fg", color || "#7f8c8d");
-    badge.style.setProperty("--jos-badge-bg-soft", hexToRgba(color || "#7f8c8d", 0.16));
-    badge.textContent = letter;
-
-    wrap.appendChild(document.createTextNode("\u00A0"));
-    wrap.appendChild(badge);
-    return wrap;
-  }
-
-  function injectBadge(selected) {
-    if (!selected) return false;
-
-    const target = findNavbarTarget();
-    if (!target) return false;
-
-    // Always rebuild to avoid stale letter/color after a switch
-    const existing = document.getElementById("jos-warehouse-icon");
-    if (existing?.parentNode) existing.parentNode.removeChild(existing);
-
-    const map = STYLE_MAP[selected] || { letter: "?", color: "#7f8c8d" };
-    const el = makeBadge(map.letter, map.color, selected);
-    target.appendChild(el);
-
-    document.body.dataset.establishment = selected;
-    log("badge injected:", map.letter, "for", selected);
-    return true;
-  }
-
-  let badgeDone = false;
-
-  function work() {
-    const selected = getSelection();
-    if (!badgeDone) badgeDone = injectBadge(selected);
-    return badgeDone;
-  }
-
-  function rerender() {
-    const old = document.getElementById("jos-warehouse-icon");
-    if (old?.parentNode) old.parentNode.removeChild(old);
-    badgeDone = false;
-    work();
-  }
-
-  function connectDomObserver() {
-    const observer = new MutationObserver(() => {
-      if (work()) observer.disconnect();
+    badge.className = "josfe-badge";
+    Object.assign(badge.style, {
+      background: color,
+      color: "#fff",
+      borderRadius: "9999px",
+      padding: "2px 8px",
+      fontWeight: "600",
+      marginRight: "8px",
+      display: "inline-block",
+      whiteSpace: "nowrap",
+      lineHeight: "18px",
+      fontSize: "12px"
     });
-    observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
-    window.addEventListener("pagehide", () => observer.disconnect(), { once: true });
+    badge.textContent = short;
+    badge.title = title;
+
+    navbar.prepend(badge);
   }
 
-  function connectSelectionHooks() {
-    const origSetItem = localStorage.setItem?.bind(localStorage);
-    if (origSetItem) {
-      try {
-        localStorage.setItem = function (k, v) {
-          const r = origSetItem(k, v);
-          if (k === STORAGE_KEY) rerender();
-          return r;
-        };
-      } catch (err) {
-        log("setItem override failed", err);
-      }
-    }
-
-    window.addEventListener("storage", (e) => {
-      if (e.key !== STORAGE_KEY) return;
-
-      const el = document.getElementById("jos-warehouse-icon");
-      if (el?.parentNode) el.parentNode.removeChild(el);
-      badgeDone = false;
-      rerender();
-    });
+  function refreshFromServerAndDraw() {
+    return frappe
+      .call("josfe.user_location.session.get_establishment_options")
+      .then((r) => {
+        const latest = (r.message?.selected || "").trim();
+        if (latest) {
+          frappe.boot.jos_selected_establishment = latest;
+          draw(latest);
+        } else {
+          draw(""); // clear
+        }
+      })
+      .catch(() => {});
   }
 
+  // initial render: use boot then ensure freshness
   frappe.after_ajax(() => {
-    if (!work()) {
-      connectDomObserver();
-      connectSelectionHooks();
-
-      // Failsafe: ensure a re-run once the next frame paints
-      requestAnimationFrame(() => rerender());
-    } else {
-      connectSelectionHooks();
-    }
+    const bootVal = getWH();
+    if (bootVal) draw(bootVal);
+    refreshFromServerAndDraw();
   });
+
+  // re-render when navbar DOM changes (forms/pages can re-render navbar)
+  const mo = new MutationObserver(() => {
+    const wh = getWH();
+    const navbar = document.querySelector(".navbar .navbar-nav") || document.querySelector(".navbar");
+    if (navbar && !navbar.querySelector(".josfe-badge")) draw(wh);
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  // cross-tab live updates
+  if ("BroadcastChannel" in window) {
+    const bc = new BroadcastChannel(CHANNEL);
+    bc.onmessage = (ev) => { if (ev?.data?.type === "changed") refreshFromServerAndDraw(); };
+  }
+  window.addEventListener("storage", (ev) => {
+    if (ev.key === SIGNAL_KEY) refreshFromServerAndDraw();
+  });
+
+  // expose for picker to call immediately after save (optional)
+  window.injectWarehouseBadge = () => draw(getWH());
 })();

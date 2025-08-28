@@ -1,6 +1,5 @@
 frappe.ui.form.on("Sales Invoice", {
   onload(frm) {
-    applyWarehouseQuery(frm);
     forceHideNamingSeries(frm);
     ensureSerieField(frm);
   },
@@ -15,11 +14,9 @@ frappe.ui.form.on("Sales Invoice", {
 
   refresh(frm) {
     forceHideNamingSeries(frm);
-    applyWarehouseQuery(frm);          // re-assert query on refresh
     maybe_load_pe_options(frm, false); // if warehouse already selected
     ensureSerieField(frm);
     ensureMountedThen(() => paintSeriePreview(frm), frm, 'input[data-fieldname="naming_series"]');
-    applyLocationDefaults(frm);
   },
 
   custom_jos_level3_warehouse(frm) {
@@ -77,37 +74,6 @@ function forceHideNamingSeries(frm) {
     frm.set_value("naming_series", "");
   }
 }
-
-function applyWarehouseQuery(frm) {
-  const fld = frm.fields_dict.custom_jos_level3_warehouse;
-  if (!fld) return;
-
-  if (!frm.doc.company) {
-    // ⚠️ Show alert just like ERPNext does
-    frappe.show_alert({
-      message: __("Please specify: Customer. It is needed to fetch Warehouse options."),
-      indicator: "orange"
-    }, 5);
-
-    // Clear the options so user doesn't select blindly
-    frm.set_df_property("custom_jos_level3_warehouse", "options", []);
-    frm.refresh_field("custom_jos_level3_warehouse");
-    return;
-  }
-
-  const q = () => ({
-    query: "josfe.sri_invoicing.numbering.state.level3_warehouse_link_query",
-    filters: { company: frm.doc.company }
-  });
-
-  // Defensive: set it in all 3 places
-  fld.get_query = q;
-  fld.df.get_query = q;
-  frm.set_query("custom_jos_level3_warehouse", q);
-
-  frm.set_df_property("custom_jos_level3_warehouse", "only_select", 1);
-}
-
 
 function maybe_load_pe_options(frm, clear) {
   const wh = frm.doc.custom_jos_level3_warehouse;
@@ -212,24 +178,4 @@ function warnIfNoCustomerBeforeWarehouseSelection(frm) {
       });
     }
   });
-}
-
-function applyLocationDefaults(frm) {
-  const selected = frappe.boot.user.defaults.jos_selected_establishment;
-  if (!selected) return;
-
-  // Set default if not already set
-  if (!frm.doc.custom_jos_level3_warehouse) {
-    frm.set_value("custom_jos_level3_warehouse", selected);
-  }
-
-  // Disable the field to prevent changes
-  frm.toggle_enable("custom_jos_level3_warehouse", false);
-
-  // Set filter to only allow warehouses under the selected parent
-  frm.set_query("custom_jos_level3_warehouse", () => ({
-    filters: {
-      parent_warehouse: selected
-    }
-  }));
 }

@@ -1,34 +1,23 @@
-# apps/josfe/josfe/user_location/permissions.py
 import frappe
 
-SESSION_KEY = "jos_selected_establishment"
+def _selected_wh():
+    """Return the warehouse currently stored on the User record."""
+    return frappe.db.get_value("User", frappe.session.user, "custom_jos_selected_warehouse") or ""
 
-def _session_selection(user=None):
-    # always the current session; ignore 'user'
-    return frappe.local.session.data.get(SESSION_KEY)
-
-def _children_of(parent):
-    """Return list of allowed warehouses (parent + direct children)."""
-    if not parent:
-        return []
-    children = frappe.get_all("Warehouse", filters={"parent_warehouse": parent}, pluck="name")
-    return [parent] + children
-
-# ---- Sales Invoice ----
-def get_permission_query_conditions(user):
-    selected = _session_selection()
-    if not selected or selected == "__CONSOLIDADO__":
-        # No restriction when Consolidado or nothing selected (you may prefer 1=0 if nothing)
-        return None
-
-    wh_list = _children_of(selected)
-    if not wh_list:
+def _clause(doctype: str, warehouse_field: str):
+    """Helper to build SQL clause restricting by warehouse."""
+    wh = _selected_wh()
+    if not wh:
+        # No selection → show nothing, force user to pick
         return "1=0"
-    wh_sql = "', '".join(wh_list)
-    return f"`tabSales Invoice`.`custom_jos_level3_warehouse` in ('{wh_sql}')"
+    wh_esc = frappe.db.escape(wh)
+    return f"`tab{doctype}`.`{warehouse_field}` = {wh_esc}"
 
-def has_permission(doc, user):
-    selected = _session_selection()
-    if not selected or selected == "__CONSOLIDADO__":
-        return True
-    return (getattr(doc, "custom_jos_level3_warehouse", None) in _children_of(selected))
+# Sales Invoice: restrict lists/standard reports
+def si_query(user):
+    return _clause("Sales Invoice", "custom_jos_level3_warehouse")
+
+# Prevent opening docs from other warehouses
+def si_has_permission(doc, user=None):
+    wh = _selected_wh()
+    return bool(wh and getattr(doc, "custom_jos_level3_warehouse", None) == wh)

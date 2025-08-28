@@ -53,18 +53,30 @@ def _as_int(v) -> int:
     except Exception:
         return 0
 
-def validate_warehouse_sri(doc, method=None):
+def validate_warehouse_sri(doc, method=None): 
     """
     Server-side guard that matches the UI flow:
 
     - Before INIT (initiated == 0): allow seq_* == 0 (or blank). Just block negatives.
     - After INIT  (initiated == 1): require all seq_* >= 1. (UI also enforces this.)
+    - Ensure only one Punto de Emisión has estado == "Activo".
     """
     child_field = _child_fieldname_on_warehouse()
     if not child_field:
         return
 
     rows = getattr(doc, child_field, []) or []
+
+    # --- NEW RULE: Only one row can be Activo ---
+    active_rows = [r for r in rows if (r.estado or "").strip().lower() == "activo"]
+    if len(active_rows) > 1:
+        raise frappe.ValidationError(
+            _("Solo un Punto de Emisión puede estar en estado Activo en la bodega '{0}'. "
+              "Actualmente activos: {1}")
+            .format(doc.name, ", ".join([r.emission_point_code or "?" for r in active_rows]))
+        )
+
+    # --- Existing sequential validations ---
     for idx, row in enumerate(rows, start=1):
         initiated = int(row.initiated or 0)
 
@@ -84,3 +96,4 @@ def validate_warehouse_sri(doc, method=None):
         else:
             # Before INIT: zeros are fine (UI will block Save anyway if any row not INITed)
             pass
+

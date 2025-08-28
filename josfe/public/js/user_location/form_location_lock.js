@@ -54,48 +54,48 @@
     }
   }
 
-async function applyToForm(frm, wh) {
+  async function applyToForm(frm, wh) {
 
-  if (!wh) {
-    frappe.show_alert({ message: "Debes seleccionar un Establecimiento", indicator: "red" });
-    frappe.set_route("location-picker");
-    return;
-  }
-
-  // Set WH on header field
-  if (frm.doc.custom_jos_level3_warehouse !== wh) {
-    frm.set_value("custom_jos_level3_warehouse", wh);
-  }
-
-  // --- Always refresh PE from active row ---
-  if (frm.doctype === "Sales Invoice") {
-    const pe = await fetchActivePE(wh);
-
-    if (pe && frm.doc.custom_jos_sri_emission_point_code !== pe) {
-      frm.set_value("custom_jos_sri_emission_point_code", pe);
+    if (!wh) {
+      frappe.show_alert({ message: "Debes seleccionar un Establecimiento", indicator: "red" });
+      frappe.set_route("location-picker");
+      return;
     }
-  }
 
-  // Lock both fields
-  lockFields(frm);
-
-  // Default for "set_warehouse" field (if exists)
-  const fld = frm.fields_dict?.set_warehouse;
-  if (fld && fld.df) {
-    fld.df.default = wh;
-    try { frm.refresh_field("set_warehouse"); } catch (e) {}
-  }
-
-  // Lock item warehouses to current WH
-  if (frm.fields_dict.items) {
-    const grid = frm.fields_dict.items.grid;
-    const whField = grid.get_field("warehouse");
-    if (whField) {
-      whField.get_query = () => ({ filters: { name: wh } });
+    // Set WH on header field
+    if (frm.doc.custom_jos_level3_warehouse !== wh) {
+      frm.set_value("custom_jos_level3_warehouse", wh);
     }
-  }
 
-}
+    // --- Always refresh PE from active row ---
+    if (frm.doctype === "Sales Invoice") {
+      const pe = await fetchActivePE(wh);
+
+      if (pe && frm.doc.custom_jos_sri_emission_point_code !== pe) {
+        frm.set_value("custom_jos_sri_emission_point_code", pe);
+      }
+    }
+
+    // Lock both fields
+    lockFields(frm);
+
+    // Default for "set_warehouse" field (if exists)
+    const fld = frm.fields_dict?.set_warehouse;
+    if (fld && fld.df) {
+      fld.df.default = wh;
+      try { frm.refresh_field("set_warehouse"); } catch (e) {}
+    }
+
+    // Lock item warehouses to current WH
+    if (frm.fields_dict.items) {
+      const grid = frm.fields_dict.items.grid;
+      const whField = grid.get_field("warehouse");
+      if (whField) {
+        whField.get_query = () => ({ filters: { name: wh } });
+      }
+    }
+
+  }
 
 
   async function enforce(frm) {

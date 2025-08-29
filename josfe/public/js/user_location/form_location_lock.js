@@ -71,8 +71,14 @@
     if (frm.doctype === "Sales Invoice") {
       const pe = await fetchActivePE(wh);
 
-      if (pe && frm.doc.custom_jos_sri_emission_point_code !== pe) {
-        frm.set_value("custom_jos_sri_emission_point_code", pe);
+      if (pe) {
+        if (frm.doc.custom_jos_sri_emission_point_code !== pe) {
+          frm.set_value("custom_jos_sri_emission_point_code", pe);
+        }
+      } else {
+        frappe.throw(
+          __("No hay Puntos de Emisión Activos en la Sucursal {0}", [wh])
+        );
       }
     }
 

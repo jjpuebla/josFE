@@ -319,10 +319,14 @@ def initiate_or_edit(
 
 
 
-        # Always mark as initiated and ensure estado is Active
+        # Always mark as initiated
         frappe.db.set_value(CHILD_DOCTYPE, row["name"], "initiated", 1, update_modified=False)
-        if not row.get("estado") or str(row.get("estado")).strip().lower() in ("", "inactivo", "inactive"):
-            frappe.db.set_value(CHILD_DOCTYPE, row["name"], "estado", _active_estado_value(), update_modified=False)
+
+        # Do NOT force estado to Activo — keep whatever the row already has.
+        # Only normalize empty/null values to "Inactivo".
+        current_estado = (row.get("estado") or "").strip().lower()
+        if current_estado in ("", "none", "null"):
+            frappe.db.set_value(CHILD_DOCTYPE, row["name"], "estado", "Inactivo", update_modified=False)
 
         #********LOG
         latest = _row_by_name_locked(row["name"])

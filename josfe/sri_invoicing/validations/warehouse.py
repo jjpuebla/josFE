@@ -56,17 +56,40 @@ def _as_int(v) -> int:
 
 def validate_warehouse_sri(doc, method=None): 
     """
-    Server-side guard that matches the UI flow:
+    Server-side guard:
 
-    - Before INIT (initiated == 0): allow seq_* == 0 (or blank). Just block negatives.
-    - After INIT  (initiated == 1): require all seq_* >= 1. (UI also enforces this.)
-    - Ensure only one Punto de Emisión has estado == "Activo".
+    - Normalize blank estado to "Inactivo".
+    - Ensure only one Punto de Emisión can be Activo at any time
+      (even before INIT).
+    - Sequential rules stay the same.
     """
     child_field = _child_fieldname_on_warehouse()
     if not child_field:
         return
 
     rows = getattr(doc, child_field, []) or []
+
+    # --- Normalize estado + sequential checks ---
+    for idx, row in enumerate(rows, start=1):
+        # Normalize estado
+        current_estado = (row.estado or "").strip()
+        if not current_estado:
+            row.estado = "Inactivo"
+
+        initiated = int(row.initiated or 0)
+
+        # Normalize empties to 0 and block negatives
+        for fn, label in SEQ_LABELS.items():
+            n = _as_int(getattr(row, fn, 0))
+            if n < 0:
+                frappe.throw(f"Fila {idx}: Secuencial inválido para {label}. No se permiten negativos.")
+            setattr(row, fn, n)  # write back normalized
+
+        if initiated:
+            # After INIT: all must be >= 1
+            for fn, label in SEQ_LABELS.items():
+                if _as_int(getattr(row, fn, 0)) < 1:
+                    frappe.throw(f"Fila {idx}: Secuencial inicial inválido para {label}. Debe ser ≥ 1.")
 
     # --- NEW RULE: Only one row can be Activo ---
     active_rows = [r for r in rows if (r.estado or "").strip().lower() == "activo"]
@@ -76,25 +99,3 @@ def validate_warehouse_sri(doc, method=None):
               "Actualmente activos: {1}")
             .format(doc.name, ", ".join([r.emission_point_code or "?" for r in active_rows]))
         )
-
-    # --- Existing sequential validations ---
-    for idx, row in enumerate(rows, start=1):
-        initiated = int(row.initiated or 0)
-
-        # Normalize empties to 0 and block negatives
-        for fn, label in SEQ_LABELS.items():
-            n = _as_int(getattr(row, fn, 0))
-            if n < 0:
-                frappe.throw(f"Fila {idx}: Secuencial inválido para {label}. No se permiten negativos.")
-            # write back normalized value (avoids None/'' issues)
-            setattr(row, fn, n)
-
-        if initiated:
-            # After INIT: all must be >= 1
-            for fn, label in SEQ_LABELS.items():
-                if _as_int(getattr(row, fn, 0)) < 1:
-                    frappe.throw(f"Fila {idx}: Secuencial inicial inválido para {label}. Debe ser ≥ 1.")
-        else:
-            # Before INIT: zeros are fine (UI will block Save anyway if any row not INITed)
-            pass
-

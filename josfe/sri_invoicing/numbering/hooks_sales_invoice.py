@@ -26,3 +26,4 @@ def si_before_submit(doc, method):
     ep_code = doc.sri_emission_point_code
     invoice_no = doc.sri_sequential_assigned
     sync_pe_next(est_code, ep_code, "Factura", invoice_no)
+

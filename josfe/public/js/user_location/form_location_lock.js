@@ -43,17 +43,28 @@
   }
 
   function lockFields(frm) {
-    // --- Warehouse: just make read-only ---
+    // 1) Always keep the real Link (custom_jos_level3_warehouse) hidden, but set + save its value
     if (frm.fields_dict.custom_jos_level3_warehouse) {
+      frm.set_df_property("custom_jos_level3_warehouse", "hidden", 1);
+      // keep it read-only too (safety)
       frm.set_df_property("custom_jos_level3_warehouse", "read_only", 1);
     }
 
-    // --- Emission Point: just make read-only ---
+    // 2) Mirror the value into the display-only Data field (no hyperlink)
+    if (frm.fields_dict.custom_jos_level3_warehouse_display) {
+      const wh_val = frm.doc.custom_jos_level3_warehouse || "";
+      if (frm.doc.custom_jos_level3_warehouse_display !== wh_val) {
+        frm.set_value("custom_jos_level3_warehouse_display", wh_val);
+      }
+      frm.set_df_property("custom_jos_level3_warehouse_display", "read_only", 1);
+      frm.refresh_field("custom_jos_level3_warehouse_display");
+    }
+
+    // 3) Keep PE read-only (it’s already working)
     if (frm.fields_dict.custom_jos_sri_emission_point_code) {
       frm.set_df_property("custom_jos_sri_emission_point_code", "read_only", 1);
     }
   }
-
   async function applyToForm(frm, wh) {
 
     if (!wh) {
@@ -62,28 +73,35 @@
       return;
     }
 
-    // Set WH on header field
-    if (frm.doc.custom_jos_level3_warehouse !== wh) {
-      frm.set_value("custom_jos_level3_warehouse", wh);
+  // Set the REAL Link field (DB value)
+  if (frm.doc.custom_jos_level3_warehouse !== wh) {
+    frm.set_value("custom_jos_level3_warehouse", wh);
+  }
+
+  // Always refresh PE from active row for this WH (and block if none)
+  if (frm.doctype === "Sales Invoice") {
+    const pe = await fetchActivePE(wh);
+    if (!pe) {
+      frappe.throw(
+        __("No hay Puntos de Emisión Activos en la Sucursal {0}", [wh])
+      );
     }
-
-    // --- Always refresh PE from active row ---
-    if (frm.doctype === "Sales Invoice") {
-      const pe = await fetchActivePE(wh);
-
-      if (pe) {
-        if (frm.doc.custom_jos_sri_emission_point_code !== pe) {
-          frm.set_value("custom_jos_sri_emission_point_code", pe);
-        }
-      } else {
-        frappe.throw(
-          __("No hay Puntos de Emisión Activos en la Sucursal {0}", [wh])
-        );
-      }
+    if (frm.doc.custom_jos_sri_emission_point_code !== pe) {
+      frm.set_value("custom_jos_sri_emission_point_code", pe);
     }
+  }
 
-    // Lock both fields
-    lockFields(frm);
+  // Mirror to display-only Data field (no hyperlink)
+  if (frm.fields_dict.custom_jos_level3_warehouse_display) {
+    if (frm.doc.custom_jos_level3_warehouse_display !== wh) {
+      frm.set_value("custom_jos_level3_warehouse_display", wh);
+    }
+    frm.set_df_property("custom_jos_level3_warehouse_display", "read_only", 1);
+    frm.refresh_field("custom_jos_level3_warehouse_display");
+  }
+
+  // Lock/hide the real Link and keep PE read-only
+  lockFields(frm);
 
     // Default for "set_warehouse" field (if exists)
     const fld = frm.fields_dict?.set_warehouse;

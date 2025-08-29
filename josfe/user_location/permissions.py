@@ -21,3 +21,13 @@ def si_query(user):
 def si_has_permission(doc, user=None):
     wh = _selected_wh()
     return bool(wh and getattr(doc, "custom_jos_level3_warehouse", None) == wh)
+
+# SRI XML Queue: restrict lists/standard reports
+def xml_query(user):
+    return _clause("SRI XML Queue", "custom_jos_level3_warehouse")
+
+# Prevent opening XML docs from other warehouses
+def xml_has_permission(doc, user=None):
+    wh = _selected_wh()
+    return bool(wh and getattr(doc, "custom_jos_level3_warehouse", None) == wh)
+

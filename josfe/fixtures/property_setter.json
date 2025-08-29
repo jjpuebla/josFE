@@ -1022,5 +1022,37 @@
   "property_type": "Check",
   "row_name": null,
   "value": "0"
+ },
+ {
+  "default_value": null,
+  "doc_type": "SRI XML Queue",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "state",
+  "is_system_generated": 1,
+  "modified": "2025-08-29 11:41:40.145007",
+  "module": "sri_invoicing",
+  "name": "SRI XML Queue-state-in_list_view",
+  "property": "in_list_view",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "1"
+ },
+ {
+  "default_value": null,
+  "doc_type": "SRI XML Queue",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "state",
+  "is_system_generated": 0,
+  "modified": "2025-08-29 11:36:05.670815",
+  "module": "sri_invoicing",
+  "name": "SRI XML Queue-state-in_standard_filter",
+  "property": "in_standard_filter",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "1"
  }
 ]

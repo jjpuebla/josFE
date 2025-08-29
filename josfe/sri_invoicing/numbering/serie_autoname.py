@@ -67,8 +67,9 @@ def si_autoname(doc, method):
     doc.custom_sri_serie = doc.name
 
 def si_before_save(doc, method):
-    # Relleno defensivo para resistir cambios del lado del cliente
     _ensure_sri_fields(doc)
+
+
 
 import frappe
 from frappe.utils import cint

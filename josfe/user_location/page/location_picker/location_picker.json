@@ -4,13 +4,17 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2025-08-21 01:41:27.050490",
+ "modified": "2025-08-29 16:55:15.659851",
  "modified_by": "Administrator",
  "module": "user_location",
  "name": "location-picker",
  "owner": "Administrator",
  "page_name": "location-picker",
- "roles": [],
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,

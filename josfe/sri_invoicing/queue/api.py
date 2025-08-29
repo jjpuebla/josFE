@@ -18,6 +18,7 @@ def enqueue_for_sales_invoice(si_name: str) -> str:
             "sales_invoice": si.name,
             "company": si.company,
             "customer": getattr(si, "customer", None),
+            "custom_jos_level3_warehouse": getattr(si, "custom_jos_level3_warehouse", None),  # 👈 add this line
             "state": SRIQueueState.Queued.value,  # "En Cola"
         })
         q.insert(ignore_permissions=True)
@@ -51,3 +52,12 @@ def on_sales_invoice_cancel(doc, method=None):
             q.db_set("last_error", "Marked Cancelado due to Sales Invoice cancel")
     except Exception:
         frappe.log_error(frappe.get_traceback(), title="SRI on_sales_invoice_cancel failed")
+
+def on_sales_invoice_trash(doc, method=None):
+    """When a Sales Invoice is deleted, also delete linked XML Queue."""
+    try:
+        xmls = frappe.get_all("SRI XML Queue", {"sales_invoice": doc.name})
+        for x in xmls:
+            frappe.delete_doc("SRI XML Queue", x.name, force=True)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), title="SRI on_sales_invoice_trash failed")

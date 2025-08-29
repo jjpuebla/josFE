@@ -68,3 +68,27 @@ def get_establishment_options():
         "allow_consolidado": False,  # flip if you want the "Consolidado" option
         "selected": selected,
     }
+
+def on_login_redirect(login_manager):
+    """Server-side login hook.
+    We don't force a redirect here; the client-side route guard handles it.
+    Keep this as a light log to avoid interfering with Desk boot."""
+    try:
+        frappe.logger("josfe").info(f"[login] user={frappe.session.user}")
+    except Exception:
+        pass
+
+def on_logout(login_manager=None, user=None, *args, **kwargs):
+    """
+    Frappe calls this with keyword `login_manager`.
+    Resolve the username robustly and clear the selected warehouse.
+    """
+    try:
+        usr = user or getattr(login_manager, "user", None) or frappe.session.user
+        if not usr:
+            return
+        frappe.db.set_value("User", usr, "custom_jos_selected_warehouse", None)
+        frappe.db.commit()
+        frappe.logger("josfe").info(f"[logout] cleared selection for user={usr}")
+    except Exception as e:
+        frappe.log_error(f"on_logout error: {e}", "josfe.user_location.session.on_logout")

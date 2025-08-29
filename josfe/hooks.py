@@ -99,6 +99,10 @@ doc_events = {
         "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit",
         "on_submit": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_submit",
         "on_cancel": "josfe.sri_invoicing.queue.api.on_sales_invoice_cancel",
+        "on_trash": "josfe.sri_invoicing.queue.api.on_sales_invoice_trash",
+    },
+    "SRI XML Queue": {
+        "on_update": "josfe.sri_invoicing.xml.service.on_queue_update",
     }
 }
 
@@ -128,10 +132,14 @@ boot_session = "josfe.user_location.session.inject_selected_warehouse"
 
 permission_query_conditions = {
     "Sales Invoice": "josfe.user_location.permissions.si_query",
+    "SRI XML Queue": "josfe.user_location.permissions.xml_query",
+
 }
 
 has_permission = {
     "Sales Invoice": "josfe.user_location.permissions.si_has_permission",
+    "SRI XML Queue": "josfe.user_location.permissions.xml_has_permission",
+
 }
 
 # Redirect users without selection to the picker after login; log on logout

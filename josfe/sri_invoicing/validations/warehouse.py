@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import frappe
+from frappe import _
 
 CHILD_DOCTYPE = "SRI Puntos Emision"
 

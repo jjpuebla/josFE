@@ -112,9 +112,9 @@ app_include_css = [
 
 # Map Doctype -> JS file (path is relative to your app's package root)
 doctype_js = {
-    "Warehouse": "public/js/warehouse_sri_seq.min.js",
-    "Sales Invoice": "public/js/sales_invoice_series.js",
-    "Credenciales SRI": "public/js/sri_credential.js",
+    "Warehouse": "public/js/sri_invoicing/warehouse_sri_seq.min.js",
+    "Sales Invoice": "public/js/sri_invoicing/sales_invoice_series.js",
+    "Credenciales SRI": "public/js/sri_invoicing/sri_credential.js",
 }
 
 scheduler_events = {

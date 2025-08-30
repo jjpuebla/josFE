@@ -87,3 +87,10 @@ def transition(name: str, to_state: str, reason: Optional[str] = None):
     doc = frappe.get_doc("SRI XML Queue", name)
     doc.transition_to(to_state, reason)
     return doc.name
+
+@frappe.whitelist()
+def get_allowed_transitions(name: str):
+    """Return allowed transitions for a given XML Queue row"""
+    doc = frappe.get_doc("SRI XML Queue", name)
+    state = _coerce_state(doc.state)
+    return list(ALLOWED.get(state, []))

@@ -9,22 +9,34 @@ def enqueue_for_sales_invoice(si_name: str) -> str:
     existing = frappe.db.get_value(QUEUE_DTYPE, {"sales_invoice": si_name}, "name")
     if existing:
         return existing
+
     si = frappe.get_doc("Sales Invoice", si_name)
     if si.docstatus != 1:
         frappe.throw(_("Sales Invoice {0} must be submitted to enqueue.").format(si.name))
+
     try:
+        # Defensive: ensure name is long enough
+        ec_code = None
+        if si.name and len(si.name) >= 3:
+            ec_code = si.name[0:3]  # first 3 characters
+        else:
+            frappe.throw(f"Invalid Sales Invoice name format: {si.name}")
+
         q = frappe.get_doc({
             "doctype": QUEUE_DTYPE,
             "sales_invoice": si.name,
             "company": si.company,
             "customer": getattr(si, "customer", None),
-            "custom_jos_level3_warehouse": getattr(si, "custom_jos_level3_warehouse", None),  # 👈 add this line
+            "custom_jos_level3_warehouse": getattr(si, "custom_jos_level3_warehouse", None),
+            "custom_jos_ec_code": ec_code,   # 👈 add hidden field in SRI XML Queue
             "state": SRIQueueState.Queued.value,  # "En Cola"
         })
         q.insert(ignore_permissions=True)
         return q.name
+
     except DuplicateEntryError:
         return frappe.db.get_value(QUEUE_DTYPE, {"sales_invoice": si_name}, "name")
+
 
 def enqueue_on_sales_invoice_submit(doc, method=None):
     try:

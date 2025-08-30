@@ -100,11 +100,28 @@
   // cross-tab live updates
   if ("BroadcastChannel" in window) {
     const bc = new BroadcastChannel(CHANNEL);
-    bc.onmessage = (ev) => { if (ev?.data?.type === "changed") refreshFromServerAndDraw(); };
+    bc.onmessage = (ev) => {
+      if (ev?.data?.type === "changed") {
+        refreshFromServerAndDraw();
+        refreshActiveView();
+      }
+    };
   }
+
   window.addEventListener("storage", (ev) => {
-    if (ev.key === SIGNAL_KEY) refreshFromServerAndDraw();
+    if (ev.key === SIGNAL_KEY) {
+      refreshFromServerAndDraw();
+      refreshActiveView();
+    }
   });
+
+  // helper: refresh current list or form if open
+  function refreshActiveView() {
+    if (cur_list && typeof cur_list.refresh === "function") {
+      cur_list.refresh();
+    }
+    
+  }
 
   // expose for picker to call immediately after save (optional)
   window.injectWarehouseBadge = () => draw(getWH());

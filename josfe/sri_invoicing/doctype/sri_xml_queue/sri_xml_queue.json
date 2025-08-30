@@ -1,13 +1,14 @@
 {
  "actions": [],
- "autoname": "format:SRIQ-{YYYY}-{#####}",
- "creation": "2025-08-16 21:44:35.815111",
+ "autoname": "naming_series:",
+ "creation": "2025-08-30 02:51:37.098352",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
   "sales_invoice",
   "company",
+  "custom_jos_level3_warehouse",
   "customer",
   "state",
   "xml_file",
@@ -30,6 +31,7 @@
    "in_list_view": 1,
    "label": "Factura de Venta",
    "options": "Sales Invoice",
+   "read_only": 1,
    "reqd": 1,
    "unique": 1
   },
@@ -39,14 +41,23 @@
    "in_list_view": 1,
    "label": "Compa\u00f1\u00eda",
    "options": "Company",
+   "read_only": 1,
    "reqd": 1
+  },
+  {
+   "fieldname": "custom_jos_level3_warehouse",
+   "fieldtype": "Link",
+   "label": "Sucursal",
+   "options": "Warehouse",
+   "read_only": 1
   },
   {
    "fieldname": "customer",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Cliente",
-   "options": "Customer"
+   "options": "Customer",
+   "read_only": 1
   },
   {
    "default": "En Cola",
@@ -55,6 +66,7 @@
    "in_list_view": 1,
    "label": "Estado",
    "options": "En Cola\nFirmando\nListo para Transmitir\nTransmitido\nAceptado\nRechazado\nFallido\nCancelado",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -72,12 +84,14 @@
   {
    "fieldname": "sri_authorization",
    "fieldtype": "Data",
-   "label": "Autorizaci\u00f3n SRI #"
+   "label": "Autorizaci\u00f3n SRI #",
+   "read_only": 1
   },
   {
    "fieldname": "last_error",
    "fieldtype": "Small Text",
-   "label": "\u00daltimo Error"
+   "label": "\u00daltimo Error",
+   "read_only": 1
   },
   {
    "fieldname": "last_transition_at",
@@ -91,14 +105,20 @@
    "label": "\u00daltima Transici\u00f3n Por",
    "options": "User",
    "read_only": 1
+  },
+  {
+   "fieldname": "custom_jos_level3_warehouse",
+   "fieldtype": "Link",
+   "label": "Sucursal",
+   "options": "Warehouse",
+   "read_only": 1
   }
  ],
  "links": [],
- "modified": "2025-08-17 22:49:24.411518",
+ "modified": "2025-08-30 02:52:08.998032",
  "modified_by": "Administrator",
  "module": "sri_invoicing",
  "name": "SRI XML Queue",
- "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -133,5 +153,4 @@
  "sort_order": "DESC",
  "states": [],
  "track_changes": 1
- 
 }

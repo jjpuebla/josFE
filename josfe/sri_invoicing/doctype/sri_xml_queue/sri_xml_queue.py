@@ -94,3 +94,19 @@ def get_allowed_transitions(name: str):
     doc = frappe.get_doc("SRI XML Queue", name)
     state = _coerce_state(doc.state)
     return list(ALLOWED.get(state, []))
+
+@frappe.whitelist()
+def get_xml_preview(name: str):
+    doc = frappe.get_doc("SRI XML Queue", name)
+    if not doc.xml_file:
+        return ""
+    file_doc = frappe.get_doc("File", {"file_url": doc.xml_file})
+    if file_doc.is_private:
+        path = frappe.get_site_path("private", "files", file_doc.file_name)
+    else:
+        path = frappe.get_site_path("public", "files", file_doc.file_name)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception:
+        return ""

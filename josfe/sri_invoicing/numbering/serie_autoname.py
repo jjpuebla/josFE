@@ -2,17 +2,17 @@ import frappe
 from josfe.sri_invoicing.numbering.state import next_sequential
 from frappe.utils import cint
 
-def _z3(v): 
+def z3(v): 
     return str(v or "").strip().zfill(3)
 
-def _z9(n): 
+def z9(n): 
     return f"{int(n):09d}"
 
 def _establishment_of(warehouse_name: str) -> str:
     est = frappe.db.get_value("Warehouse", warehouse_name, "custom_establishment_code")
     if not est:
         frappe.throw("El Warehouse seleccionado no tiene Establecimiento (EC) configurado.")
-    return _z3(est)
+    return z3(est)
 
 def _ensure_sri_fields(doc):
     """Idempotente: rellena/asegura los campos SRI en el doc si están disponibles."""
@@ -21,7 +21,7 @@ def _ensure_sri_fields(doc):
     if not wh or not pe:
         return
 
-    pe_code = _z3(str(pe).split(" - ", 1)[0])
+    pe_code = z3(str(pe).split(" - ", 1)[0])
     est_code = _establishment_of(wh)
 
     # Asienta códigos
@@ -51,7 +51,7 @@ def si_autoname(doc, method):
     if not wh or not pe:
         frappe.throw("Seleccione Sucursal (3er nivel) y Punto de Emisión antes de guardar.")
 
-    pe_code = _z3(str(pe).split(" - ", 1)[0])
+    pe_code = z3(str(pe).split(" - ", 1)[0])
     est_code = _establishment_of(wh)
     seq = next_sequential(wh, pe_code, "Factura")  # asignador atómico
 
@@ -61,7 +61,7 @@ def si_autoname(doc, method):
     doc.sri_sequential_assigned = seq
 
     # Nombre final
-    doc.name = f"{est_code}-{pe_code}-{_z9(seq)}"
+    doc.name = f"{est_code}-{pe_code}-{z9(seq)}"
 
     # Espejo a campo de ayuda de UI
     doc.custom_sri_serie = doc.name

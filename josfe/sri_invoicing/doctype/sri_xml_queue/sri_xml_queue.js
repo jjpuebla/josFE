@@ -8,7 +8,7 @@ frappe.ui.form.on("SRI XML Queue", {
         </a>
       `);
     }
-
+    
     // click handler
     frm.fields_dict.xml_file.$wrapper.on("click", ".xml-preview-link", async function (e) {
       e.preventDefault();

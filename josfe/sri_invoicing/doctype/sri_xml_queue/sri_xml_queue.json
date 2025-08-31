@@ -1,11 +1,12 @@
 {
  "actions": [],
  "autoname": "naming_series:",
- "creation": "2025-08-30 02:51:37.098352",
+ "creation": "2025-08-30 17:11:44.365815",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "invoice_date",
   "sales_invoice",
   "company",
   "custom_jos_level3_warehouse",
@@ -47,7 +48,7 @@
   {
    "fieldname": "custom_jos_level3_warehouse",
    "fieldtype": "Link",
-   "label": "Sucursal",
+   "label": "Sucursales",
    "options": "Warehouse",
    "read_only": 1
   },
@@ -109,13 +110,20 @@
   {
    "fieldname": "custom_jos_level3_warehouse",
    "fieldtype": "Link",
-   "label": "Sucursal",
+   "label": "Sucursales",
    "options": "Warehouse",
+   "read_only": 1
+  },
+  {
+   "fieldname": "invoice_date",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Fecha",
    "read_only": 1
   }
  ],
  "links": [],
- "modified": "2025-08-30 02:52:08.998032",
+ "modified": "2025-08-30 20:47:10.303542",
  "modified_by": "Administrator",
  "module": "sri_invoicing",
  "name": "SRI XML Queue",

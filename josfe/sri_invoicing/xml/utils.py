@@ -12,32 +12,57 @@ import frappe
 TWOPLACES = Decimal("0.01")
 SIXPLACES = Decimal("0.000001")
 
-def get_party_address_name(link_doctype: str, link_name: str) -> Optional[str]:
-    """Return name of the primary Address linked to (link_doctype, link_name) via Dynamic Link."""
-    # prefer primary address; else first linked
-    names = frappe.get_all(
-        "Dynamic Link",
-        filters={
-            "link_doctype": link_doctype,
-            "link_name": link_name,
-            "parenttype": "Address",
-        },
-        fields=["parent"],
-        order_by="idx asc",
-        limit=10,
-        pluck="parent",
-    )
-    if not names:
-        return None
-    # try to pick is_primary_address if present
-    addr_flags = frappe.get_all("Address", filters={"name": ["in", names]}, fields=["name","is_primary_address"], limit=len(names))
-    primary = next((a["name"] for a in addr_flags if a.get("is_primary_address")), None)
-    return primary or names[0]
+def get_company_address(company: str, prefer_title: str = None) -> str:
+    """Return the address_line1 for a given Company.
+       If prefer_title provided, filter by that address_title.
+    """
+    conditions = []
+    values = [company]
 
-def get_party_address_display(link_doctype: str, link_name: str) -> str:
-    """Return formatted address (same as ERPNext UI) for a linked party (Company, Warehouse, etc.)."""
-    addr = get_party_address_name(link_doctype, link_name)
-    return get_address_display(addr) if addr else ""
+    sql = """
+        SELECT a.address_line1
+        FROM `tabAddress` a
+        JOIN `tabDynamic Link` dl ON dl.parent = a.name
+        WHERE dl.link_doctype = 'Company'
+          AND dl.link_name = %s
+          AND a.disabled = 0
+    """
+
+    if prefer_title:
+        sql += " AND a.address_title = %s"
+        values.append(prefer_title)
+
+    sql += " ORDER BY a.is_primary_address DESC, a.creation ASC LIMIT 1"
+
+    row = frappe.db.sql(sql, values, as_dict=True)
+    return row[0].address_line1 if row else ""
+
+
+def get_warehouse_address(warehouse: str, prefer_title: str = None) -> str:
+    """Return the address_line1 for a given Warehouse."""
+    if not warehouse:
+        return ""
+
+    conditions = []
+    values = [warehouse]
+
+    sql = """
+        SELECT a.address_line1
+        FROM `tabAddress` a
+        JOIN `tabDynamic Link` dl ON dl.parent = a.name
+        WHERE dl.link_doctype = 'Warehouse'
+          AND dl.link_name = %s
+          AND a.disabled = 0
+    """
+
+    if prefer_title:
+        sql += " AND a.address_title = %s"
+        values.append(prefer_title)
+
+    sql += " ORDER BY a.is_primary_address DESC, a.creation ASC LIMIT 1"
+
+    row = frappe.db.sql(sql, values, as_dict=True)
+    return row[0].address_line1 if row else ""
 
 def D(val) -> Decimal:
     if isinstance(val, Decimal):

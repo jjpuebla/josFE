@@ -1,5 +1,5 @@
 from xml.etree.ElementTree import Element, SubElement, tostring
-from josfe.sri_invoicing.xml.utils import _text, D, money, qty6, z3, z9, z8, ddmmyyyy, get_party_address_name, get_party_address_display
+from josfe.sri_invoicing.xml.utils import _text, D, money, qty6, z3, z9, z8, ddmmyyyy, get_company_address, get_warehouse_address
 from josfe.sri_invoicing.validations.access_key import generate_access_key
 
 import frappe
@@ -44,8 +44,10 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
     _text(infoTrib, "ptoEmi", z3(getattr(si, "sri_emission_point_code", "001")))
     _text(infoTrib, "secuencial", z9(getattr(si, "sri_sequential_assigned", 0)))
 
-    dir_matriz = get_party_address_display("Company", si.company) or ""
-    _text(infoTrib, "dirMatriz", dir_matriz)
+    _text(infoTrib, "dirMatriz", get_company_address(si.company, prefer_title="Matriz"))
+
+
+
 
 
     # -------------------------
@@ -53,9 +55,7 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
     # -------------------------
     infoFac = SubElement(factura, "infoFactura")
     _text(infoFac, "fechaEmision", si.posting_date.strftime("%d/%m/%Y"))
-    dir_establecimiento = get_party_address_display("Warehouse", si.custom_jos_level3_warehouse or "") or dir_matriz
-    _text(infoFac, "dirEstablecimiento", dir_establecimiento)
-    # _text(infoFac, "dirEstablecimiento", getattr(si, "custom_jos_level3_warehouse", ""))
+    _text(infoFac, "dirEstablecimiento", get_warehouse_address(si.custom_jos_level3_warehouse))
 
     # Buyer
     buyer_id = si.tax_id

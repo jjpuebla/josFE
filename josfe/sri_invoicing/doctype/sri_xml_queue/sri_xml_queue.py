@@ -1,36 +1,34 @@
+# -*- coding: utf-8 -*-
+# apps/josfe/josfe/sri_invoicing/doctype/sri_xml_queue/sri_xml_queue.py
+
 import frappe
 from frappe.model.document import Document
 from enum import Enum
 from typing import Dict, Set, Optional
 
-
 class SRIQueueState(str, Enum):
-    Queued            = "En Cola"
-    Signing           = "Firmando"
-    ReadyToTransmit   = "Listo para Transmitir"
-    Transmitted       = "Transmitido"
-    Accepted          = "Aceptado"
-    Rejected          = "Rechazado"
-    Failed            = "Fallido"
-    Canceled          = "Cancelado"
+    Generado   = "Generado"     # XML built and stored
+    Firmado    = "Firmado"      # XML digitally signed
+    Enviado    = "Enviado"      # Sent to SRI, awaiting response
+    Autorizado = "Autorizado"   # Accepted by SRI
+    Devuelto   = "Devuelto"     # Returned/rejected by SRI
+    Cancelado  = "Cancelado"    # Manually canceled
+    Error      = "Error"        # Any failure (signing/transmission)
 
     @classmethod
     def terminals(cls) -> Set["SRIQueueState"]:
-        return {cls.Accepted, cls.Canceled}
-
+        return {cls.Autorizado, cls.Cancelado}
 
 # Allowed transitions for the minimal M1 machine
 ALLOWED: Dict[SRIQueueState, Set[SRIQueueState]] = {
-    SRIQueueState.Queued: {SRIQueueState.Signing, SRIQueueState.Canceled},
-    SRIQueueState.Signing: {SRIQueueState.ReadyToTransmit, SRIQueueState.Failed},
-    SRIQueueState.ReadyToTransmit: {SRIQueueState.Transmitted, SRIQueueState.Failed, SRIQueueState.Canceled},
-    SRIQueueState.Transmitted: {SRIQueueState.Accepted, SRIQueueState.Rejected, SRIQueueState.Failed},
-    SRIQueueState.Rejected: {SRIQueueState.Queued, SRIQueueState.Canceled},
-    SRIQueueState.Failed: {SRIQueueState.Queued, SRIQueueState.Canceled},
-    SRIQueueState.Accepted: set(),
-    SRIQueueState.Canceled: set(),
+    SRIQueueState.Generado: {SRIQueueState.Firmado, SRIQueueState.Cancelado, SRIQueueState.Error},
+    SRIQueueState.Firmado: {SRIQueueState.Enviado, SRIQueueState.Cancelado, SRIQueueState.Error},
+    SRIQueueState.Enviado: {SRIQueueState.Autorizado, SRIQueueState.Devuelto, SRIQueueState.Error},
+    SRIQueueState.Autorizado: set(),  # final
+    SRIQueueState.Devuelto: {SRIQueueState.Generado, SRIQueueState.Cancelado},  # retry or cancel
+    SRIQueueState.Cancelado: set(),   # final
+    SRIQueueState.Error: {SRIQueueState.Generado, SRIQueueState.Cancelado},     # retry or cancel
 }
-
 
 def _coerce_state(val: str) -> SRIQueueState:
     try:
@@ -38,10 +36,9 @@ def _coerce_state(val: str) -> SRIQueueState:
     except Exception:
         frappe.throw(f"Invalid state: {frappe.as_json(val)}")
 
-
 class SRIXMLQueue(Document):
     """DocType model for the SRI XML Queue state machine.
-    Minimal M1: just states, guards, and audit fields.
+    States, allowed transitions, guards, and audit fields.
     """
 
     def before_insert(self):
@@ -60,7 +57,7 @@ class SRIXMLQueue(Document):
         _coerce_state(self.state)
 
     def on_update(self):
-        # keep audit fields up to date when a change occurs
+        # Keep audit fields up to date when a change occurs
         self.last_transition_by = frappe.session.user
         self.last_transition_at = frappe.utils.now_datetime()
 
@@ -93,20 +90,32 @@ def get_allowed_transitions(name: str):
     """Return allowed transitions for a given XML Queue row"""
     doc = frappe.get_doc("SRI XML Queue", name)
     state = _coerce_state(doc.state)
-    return list(ALLOWED.get(state, []))
+    return [s.value for s in ALLOWED.get(state, [])]
+
+# at the top of sri_xml_queue.py
+import os
 
 @frappe.whitelist()
 def get_xml_preview(name: str):
+    """Return XML content from the attached file on disk for preview dialog."""
     doc = frappe.get_doc("SRI XML Queue", name)
     if not doc.xml_file:
         return ""
-    file_doc = frappe.get_doc("File", {"file_url": doc.xml_file})
-    if file_doc.is_private:
-        path = frappe.get_site_path("private", "files", file_doc.file_name)
-    else:
-        path = frappe.get_site_path("public", "files", file_doc.file_name)
+
     try:
+        file_doc = frappe.get_doc("File", {
+            "attached_to_doctype": "SRI XML Queue",
+            "attached_to_name": name
+        })
+        if not file_doc.file_url:
+            return ""
+
+        base = frappe.get_site_path("private", "files")
+        rel = file_doc.file_url.replace("/private/files/", "", 1)
+        path = os.path.join(base, rel)
+
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
-    except Exception:
+    except Exception as e:
+        frappe.log_error(message=frappe.get_traceback(), title="get_xml_preview failed")
         return ""

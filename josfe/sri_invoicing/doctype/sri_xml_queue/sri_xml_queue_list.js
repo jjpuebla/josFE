@@ -1,15 +1,16 @@
+// apps/josfe/josfe/sri_invoicing/doctype/sri_xml_queue/sri_xml_queue_list.js
+
 frappe.listview_settings["SRI XML Queue"] = {
   get_indicator(doc) {
     const s = (doc.state || "").trim();
     const colors = {
-      "En Cola": "dark",
-      "Firmando": "purple",
-      "Listo para Transmitir": "blue",
-      "Transmitido": "orange",
-      "Aceptado": "green",
-      "Rechazado": "red",
-      "Fallido": "red",
+      "Generado": "orange",
+      "Firmado": "blue",
+      "Enviado": "purple",
+      "Autorizado": "green",
+      "Devuelto": "red",
       "Cancelado": "gray",
+      "Error": "red", // dark-red not in default palette; fallback = red
     };
     const color = colors[s] || "gray";
     return [__(s || "Desconocido"), color, "state,=," + s];
@@ -138,6 +139,7 @@ frappe.listview_settings["SRI XML Queue"] = {
           .querySelectorAll(".list-row-head .list-row-col span")
           .forEach((span) => {
             if (span.textContent.trim() === "Status") {
+              span.textContent = "Estado";  // rename header
               const cell = span.closest(".list-row-col");
               if (cell) autoFitCell(cell, 100, 160);
             }
@@ -209,15 +211,13 @@ frappe.listview_settings["SRI XML Queue"] = {
 
 function compute_steps(state_label) {
   const s = (state_label || "").toLowerCase();
-  const base = ["G", "F", "E", "V"];
-  if (s.startsWith("en cola")) return base.slice(0, 1);
-  if (s.startsWith("firmando")) return base.slice(0, 2);
-  if (s.startsWith("listo para transmitir")) return base.slice(0, 3);
-  if (s.startsWith("transmitido")) return base.slice(0, 4);
-  if (s.startsWith("aceptado")) return base.concat(["A"]);
-  if (s.startsWith("rechazado")) return base.concat(["R"]);
-  if (s.startsWith("fallido")) return base.concat(["F"]);
-  if (s.startsWith("cancelado")) return base.concat(["C"]);
+  if (s.startsWith("generado")) return ["G"];
+  if (s.startsWith("firmado")) return ["G", "F"];
+  if (s.startsWith("enviado")) return ["G", "F", "E"];
+  if (s.startsWith("autorizado")) return ["G", "F", "E", "A"];
+  if (s.startsWith("devuelto")) return ["G", "F", "E", "D"];
+  if (s.startsWith("cancelado")) return ["G", "F", "E", "C"];
+  if (s.startsWith("error")) return ["G", "F", "E", "X"];
   return null;
 }
 
@@ -234,11 +234,11 @@ function inject_cumulative_badge_css_once() {
     --jos-font-size:  12px;
     --jos-font-weight: 700;
     --jos-radius:     9px;
-    --jos-green-1: #e1cc0eff;
-    --jos-green-2: #ecac67ff;
-    --jos-green-3: #3073e8ff;
-    --jos-green-4: #9c2becff;
-    --jos-green-5: #0d942cff;
+    --jos-green-1: #e1cc0e;
+    --jos-green-2: #ecac67;
+    --jos-green-3: #3073e8;
+    --jos-green-4: #9c2bec;
+    --jos-green-5: #0d942c;
   }
   .indicator-pill .jos-step-badges { display: inline-flex; align-items: center; gap: var(--jos-badge-gap); }
   .indicator-pill .jos-letter-circle {
@@ -247,11 +247,11 @@ function inject_cumulative_badge_css_once() {
     border-radius: var(--jos-radius); font-size: var(--jos-font-size); font-weight: var(--jos-font-weight);
     line-height: 1; text-transform: uppercase; user-select: none;
   }
-  .indicator-pill .jos-letter-circle.idx-1 { background: var(--jos-green-1);color: #fff788ff;}
-  .indicator-pill .jos-letter-circle.idx-2 { background: var(--jos-green-2);color: #eaf4f4ff;}
-  .indicator-pill .jos-letter-circle.idx-3 { background: var(--jos-green-3);color: #fff;}
-  .indicator-pill .jos-letter-circle.idx-4 { background: var(--jos-green-4);color: #fff;}
-  .indicator-pill .jos-letter-circle.idx-5 { background: var(--jos-green-5);color: #fff;}
+  .indicator-pill .jos-letter-circle.idx-1 { background: var(--jos-green-1); color: #fff;}
+  .indicator-pill .jos-letter-circle.idx-2 { background: var(--jos-green-2); color: #fff;}
+  .indicator-pill .jos-letter-circle.idx-3 { background: var(--jos-green-3); color: #fff;}
+  .indicator-pill .jos-letter-circle.idx-4 { background: var(--jos-green-4); color: #fff;}
+  .indicator-pill .jos-letter-circle.idx-5 { background: var(--jos-green-5); color: #fff;}
   `;
 
   const st = document.createElement("style");

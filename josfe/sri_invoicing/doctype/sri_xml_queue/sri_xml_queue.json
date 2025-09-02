@@ -6,7 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
-  "invoice_date",
+  "posting_date",
   "sales_invoice",
   "company",
   "custom_jos_level3_warehouse",
@@ -39,7 +39,6 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Compa\u00f1\u00eda",
    "options": "Company",
    "read_only": 1,
@@ -115,18 +114,19 @@
    "read_only": 1
   },
   {
-   "fieldname": "invoice_date",
-   "fieldtype": "Data",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Fecha",
    "read_only": 1
   }
  ],
  "links": [],
- "modified": "2025-08-30 20:47:10.303542",
+ "modified": "2025-08-31 01:21:32.891639",
  "modified_by": "Administrator",
  "module": "sri_invoicing",
  "name": "SRI XML Queue",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {

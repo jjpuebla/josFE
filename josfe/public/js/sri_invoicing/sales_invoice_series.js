@@ -13,16 +13,21 @@ frappe.ui.form.on("Sales Invoice", {
   },
 
   refresh(frm) {
+    // Naming Series controls
     forceHideNamingSeries(frm);
     maybe_load_pe_options(frm, false); // if warehouse already selected
     ensureSerieField(frm);
     ensureMountedThen(() => paintSeriePreview(frm), frm, 'input[data-fieldname="naming_series"]');
+
+    // Render Forma de Pago buttons
+    renderFormaPagoButtons(frm);
   },
 
   custom_jos_level3_warehouse(frm) {
     maybe_load_pe_options(frm, true);
     paintSeriePreview(frm);
   },
+
   custom_jos_sri_emission_point_code(frm) {
     paintSeriePreview(frm);
   }
@@ -96,8 +101,6 @@ function maybe_load_pe_options(frm, clear) {
   });
 }
 
-
-
 // --- live preview without allocating a number ---
 async function paintSeriePreview(frm) {
   ensureSerieField(frm);
@@ -152,6 +155,7 @@ function ensureSerieField(frm) {
   f.refresh();
   tagSerieForStyling(frm);  // <-- add this
 }
+
 // Avoid overlapping previews; only apply the latest response
 let __seriePreviewReq = 0;
 
@@ -177,5 +181,74 @@ function warnIfNoCustomerBeforeWarehouseSelection(frm) {
         indicator: "orange"
       });
     }
+  });
+}
+
+function renderFormaPagoButtons(frm) {
+  const field = frm.fields_dict["custom_jos_forma_pago"];
+  if (!field) return;
+
+  // Avoid duplicate rendering
+  if (field.$wrapper.find(".jos-pago-buttons").length) return;
+
+  // Ordered mapping
+  const opts = [
+    ["01", "Efectivo"],
+    ["20", "Transferencias, Chqs"],
+    ["19", "Tarjeta de Crédito"],
+    ["16", "Tarjeta de Débito"]
+  ];
+
+  // Build HTML
+  let html = `
+    <label class="control-label" style="margin-bottom:6px; display:block;">
+      ${field.df.label}
+    </label>
+    <div class="jos-pago-buttons"></div>
+  `;
+
+  field.$wrapper.html(html);
+  const container = field.$wrapper.find(".jos-pago-buttons");
+
+  // Inject buttons in correct order
+  opts.forEach(([code, label]) => {
+    const active = frm.doc.custom_jos_forma_pago === code ? "jos-active" : "";
+    container.append(`
+      <button type="button" class="jos-pago-btn ${active}" data-code="${code}">
+        ${label}
+      </button>
+    `);
+  });
+
+  // Style buttons: slimmer, 2 per row
+  frappe.dom.set_style(`
+    .jos-pago-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .jos-pago-btn {
+      background-color: #777;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 3px 6px;   /* thinner */
+      flex: 1 1 calc(50% - 8px); /* 2 per row */
+      text-align: center;
+    }
+    .jos-pago-btn.jos-active {
+      background-color: #000;
+      color: #fff;
+    }
+  `);
+
+  // Handle clicks
+  container.on("click", ".jos-pago-btn", function () {
+    const code = $(this).data("code");
+    frm.set_value("custom_jos_forma_pago", code);
+
+    // Update states
+    container.find(".jos-pago-btn").removeClass("jos-active");
+    $(this).addClass("jos-active");
   });
 }

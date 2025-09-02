@@ -97,9 +97,13 @@ doc_events = {
         "autoname": "josfe.sri_invoicing.numbering.serie_autoname.si_autoname",
         "before_save": "josfe.sri_invoicing.numbering.serie_autoname.si_before_save",
         "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit",
-        "on_submit": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_submit",
-        "on_cancel": "josfe.sri_invoicing.queue.api.on_sales_invoice_cancel",
-        "on_trash": "josfe.sri_invoicing.queue.api.on_sales_invoice_trash",
+        "on_submit": [
+            "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_submit",
+            "josfe.sri_invoicing.validations.handlers.enforce_xml_on_submit", 
+        ],
+        "on_cancel": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_cancel",
+        "on_trash": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_trash",
+
     },
     "SRI XML Queue": {
         "on_update": "josfe.sri_invoicing.xml.service.on_queue_update",
@@ -110,17 +114,17 @@ doc_events = {
 # js files:
 app_include_js = ["/assets/josfe/js/loader.js"]
 
-app_include_css = [
-    "/assets/josfe/css/sri_seq.css",  
-    "/assets/josfe/css/badges.css",           
-]
-
 # Map Doctype -> JS file (path is relative to your app's package root)
 doctype_js = {
     "Warehouse": "public/js/sri_invoicing/warehouse_sri_seq.min.js",
     "Sales Invoice": "public/js/sri_invoicing/sales_invoice_series.js",
     "Credenciales SRI": "public/js/sri_invoicing/sri_credential.js",
 }
+
+app_include_css = [
+    "/assets/josfe/css/sri_seq.css",  
+    "/assets/josfe/css/badges.css",           
+]
 
 scheduler_events = {
     "daily": [

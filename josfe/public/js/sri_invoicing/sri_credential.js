@@ -145,7 +145,7 @@
         freeze(__("Guardando y transmitiendo…"));
         if (!(await ensureSaved())) return;
         const { message: m } = await frappe.call({
-          method: "josfe.sri_invoicing.transmitir_sri.transmitir_xml",
+          method: "josfe.sri_invoicing.transmission.transmitir_sri.transmitir_xml",
           args: { cred_name: frm.doc.name },
         });
         if (!m) {

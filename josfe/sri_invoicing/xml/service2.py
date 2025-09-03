@@ -2,6 +2,7 @@
 # Sandbox wrapper for XML Queue updates:
 # - Delegates to base service.on_queue_update (keeps existing signing flow)
 # - Adds transmission flow for state == "Enviado" using soap.enviar_recepcion / consultar_autorizacion
+# - Adds safeguard: Firmado must really be signed with <ds:Signature> or rollback to Generado
 #
 # Merge back into service.py once validated.
 
@@ -14,32 +15,50 @@ from frappe.utils import now_datetime
 
 # Reuse your tested behavior
 from . import service as base_service
-from josfe.sri_invoicing.transmission import soap
+from josfe.sri_invoicing.transmission import soap, poller2
+from josfe.sri_invoicing.xml.helpers import (
+    _append_comment, _attach_private_file, _db_set_state, _format_msgs
+)
 
+# Import signer
+from josfe.sri_invoicing.xml.xades_template import (
+    inject_signature_template,
+    sign_with_xmlsec,
+)
+from josfe.sri_invoicing.xml.xades_template import inject_signature_template
+# or, if you prefer the dedicated module:
+# from josfe.sri_invoicing.xml.signer import sign_with_xmlsec
+from josfe.sri_invoicing.xml.xades_template import sign_with_xmlsec
 
 def on_queue_update(doc, method=None):
-    """
-    Entry point wired from hooks (temporarily replace service.on_queue_update).
-    1) Run original signing flow (base_service)
-    2) If state == "Enviado", perform Recepción + Autorización and update Queue state
-    """
     try:
-        # 1) Delegate to the original handler (signing on "Firmado", etc.)
-        try:
-            base_service.on_queue_update(doc, method)
-        except Exception:
-            # We don't fail fast; continue so we can still handle Enviado when needed.
-            frappe.log_error(
-                title="[service2] base_service.on_queue_update failed",
-                message=traceback.format_exc(),
-            )
+        state = (doc.state or "").strip().lower()
 
-        # Reload to get latest changes done by base_service
-        doc.reload()
+        if state == "firmado":
+            try:
+                _handle_signing(doc)
+            except Exception:
+                _append_comment(
+                    doc,
+                    "❌ Error inesperado en firmado:\n```\n" + traceback.format_exc() + "\n```"
+                )
+                # Don’t change state if signing fails
+                _db_set_state(doc, "Generado")
+            return
 
-        # 2) Transmission path
-        if (doc.state or "").strip().lower() == "enviado":
-            _handle_transmission(doc)
+        if state == "enviado":
+            try:
+                _handle_transmission(doc)
+            except Exception:
+                _append_comment(
+                    doc,
+                    "❌ Error en transmisión:\n```\n" + traceback.format_exc() + "\n```"
+                )
+                # Keep state Enviado, so you can retry
+            return
+
+        # fallback to base service (for Generado, etc.)
+        base_service.on_queue_update(doc, method)
 
     except Exception:
         frappe.log_error(
@@ -47,61 +66,95 @@ def on_queue_update(doc, method=None):
             message=traceback.format_exc(),
         )
 
+def _handle_signing(doc):
+    try:
+        xml_path = _resolve_fs_path(doc.xml_file)
+        xml_bytes = _read_bytes(xml_path)
+
+        # 1) Load active SRI credential for this company (same approach as service.py)
+        cred_name = frappe.db.get_value(
+            "Credenciales SRI",
+            {"company": doc.company, "jos_activo": 1},
+            "name",
+        )
+        if not cred_name:
+            _append_comment(doc, "❌ No hay **Credenciales SRI** activas para la compañía.")
+            _db_set_state(doc, "Error")
+            return
+
+        key_pem  = frappe.get_site_path("private", "files", f"{cred_name}_private.pem")
+        cert_pem = frappe.get_site_path("private", "files", f"{cred_name}_cert.pem")
+
+        if not (os.path.exists(key_pem) and os.path.exists(cert_pem)):
+            _append_comment(doc, f"❌ PEM faltantes:\n- `{key_pem}`\n- `{cert_pem}`")
+            _db_set_state(doc, "Error")
+            return
+
+        # 2) Inject signature template (⚠ needs text + cert path)
+        xml_with_tpl = inject_signature_template(xml_bytes.decode("utf-8"), cert_pem)
+        
+        # 3) Sign with xmlsec1
+        try:
+            signed_bytes = sign_with_xmlsec(xml_with_tpl.encode("utf-8"), key_pem, cert_pem)
+        except Exception as e:
+            _append_comment(doc, "❌ Error firmando con xmlsec1:\n```\n" + str(e) + "\n```")
+            _db_set_state(doc, "Error")
+            return
+
+        # 4) Save under Firmado/
+        base_name = os.path.splitext(os.path.basename(xml_path))[0]
+        file_url = _attach_private_file(doc, f"Firmado/{base_name}.xml", signed_bytes)
+
+        # 5) Update queue row to point to signed file + state
+        doc.db_set("xml_file", file_url)
+        _db_set_state(doc, "Firmado")
+
+        # 6) Final confirmation in timeline
+        _append_comment(doc, f"**XML firmado correctamente**\nArchivo: `{file_url}`")
+
+        # (Optional) safety check: ensure signature is really present
+        # _enforce_signed(doc)
+
+    except Exception as ex:
+        _append_comment(doc, "❌ Error inesperado en firmado:\n```\n" + frappe.as_json(str(ex)) + "\n```")
+        frappe.log_error(title="[service2] _handle_signing failed", message=frappe.get_traceback())
+        _db_set_state(doc, "Error")
+# -------------------------
+# Signing safeguard
+# -------------------------
+def _enforce_signed(doc):
+    """Ensure the Firmado XML really contains a <ds:Signature>.
+    If not, inject + sign it using xmlsec1. Raises if signing fails.
+    """
+    signed_path = _resolve_fs_path(doc.xml_file)
+    xml_bytes = _read_bytes(signed_path)
+
+    # If already contains a signature, do nothing
+    if b"<ds:Signature" in xml_bytes:
+        return
+
+    # Build signed version
+    cert_path = frappe.get_site_path("private", "files", f"{doc.company}_cert.pem")
+    key_path = frappe.get_site_path("private", "files", f"{doc.company}_private.pem")
+
+    templ = inject_signature_template(xml_bytes.decode("utf-8"), cert_path)
+    signed_bytes = sign_with_xmlsec(templ.encode("utf-8"), key_path, cert_path)
+
+    # Attach new signed file
+    base_name = os.path.splitext(os.path.basename(signed_path))[0]
+    firmado_name = f"{base_name}.firmado.xml"
+    file_url = _attach_private_file(doc, firmado_name, signed_bytes)
+
+    _append_comment(doc, f"✔ XML firmado correctamente.\nArchivo: `{file_url}`")
+    doc.db_set("xml_file", file_url)
+    frappe.db.commit()
+
 
 # -------------------------
 # Transmission helpers
 # -------------------------
-def _format_msgs(title: str, mensajes) -> str:
-    """
-    Pretty-print SRI messages returned by soap.* calls.
-    Accepts str / dict / list[dict|str]. Returns Markdown.
-    """
-    # Simple string or no messages
-    if mensajes is None:
-        return f"**{title}**: (sin mensajes)"
-    if isinstance(mensajes, (bytes, str)):
-        if isinstance(mensajes, bytes):
-            try:
-                mensajes = mensajes.decode("utf-8", errors="ignore")
-            except Exception:
-                mensajes = repr(mensajes)
-        return f"**{title}**\n```\n{mensajes}\n```"
-
-    # Normalize to list
-    if isinstance(mensajes, dict):
-        mensajes = [mensajes]
-    if not isinstance(mensajes, (list, tuple)):
-        return f"**{title}**\n- {repr(mensajes)}"
-
-    lines = []
-    for m in mensajes:
-        if isinstance(m, dict):
-            ident = (m.get("identificador") or m.get("codigo") or m.get("ident") or "").strip()
-            texto = (m.get("mensaje") or m.get("texto") or m.get("detalle") or "").strip()
-            info  = (m.get("informacionAdicional") or m.get("info") or "").strip()
-            tipo  = (m.get("tipo") or "").strip()
-
-            parts = []
-            if ident:
-                parts.append(f"[{ident}]")
-            if texto:
-                parts.append(texto)
-            entry = " ".join(parts) if parts else repr(m)
-
-            if info:
-                entry += f" — {info}"
-            if tipo:
-                entry += f" ({tipo})"
-
-            lines.append(f"- {entry}")
-        else:
-            lines.append(f"- {m!r}")
-
-    return f"**{title}**\n" + "\n".join(lines)
-
 def _handle_transmission(doc):
     """Send signed XML to SRI (Recepción), then query Autorización once."""
-    # 0) Load signed XML bytes from file referenced in the queue row
     signed_path = _resolve_fs_path(doc.xml_file)
     xml_bytes = _read_bytes(signed_path)
 
@@ -112,9 +165,8 @@ def _handle_transmission(doc):
     except Exception:
         _append_comment(
             doc,
-            "Error al invocar Recepción SRI:\n```\n" + traceback.format_exc() + "\n```"
+            "Error al invocar Recepción SRI:\n```\n" + traceback.format_exc() + "\n```",
         )
-        # Keep it in Enviado (operator can retry)
         return
 
     estado = (recep.get("estado") or "").upper()
@@ -129,16 +181,13 @@ def _handle_transmission(doc):
         _append_comment(
             doc,
             f"SRI (Recepción) estado inesperado: **{estado}**\n"
-            + _format_msgs("Mensajes", mensajes)
+            + _format_msgs("Mensajes", mensajes),
         )
-        # Keep Enviado; operator can retry or check endpoints/timeouts
         return
 
     _append_comment(doc, _format_msgs("SRI (Recepción) RECIBIDA", mensajes))
 
-    # 2) Autorización (single shot check; if still en proceso, keep Enviado)
-
-    # Try to get claveAcceso from XML first, fallback to doc fields
+    # 2) Autorización
     clave = (
         _extract_clave_acceso(xml_bytes)
         or getattr(doc, "clave_acceso", None)
@@ -147,12 +196,10 @@ def _handle_transmission(doc):
     if not clave:
         _append_comment(
             doc,
-            "No se pudo determinar **claveAcceso** para Autorización "
-            "(ni en XML ni en campos del Doc)."
+            "No se pudo determinar **claveAcceso** para Autorización (ni en XML ni en el Doc).",
         )
         return
 
-    # Ambiente must match the one used in Recepción
     ambiente_used = recep.get("ambiente") or "Pruebas"
 
     try:
@@ -160,22 +207,25 @@ def _handle_transmission(doc):
     except Exception:
         _append_comment(
             doc,
-            "Error al invocar Autorización SRI:\n```\n" + traceback.format_exc() + "\n```"
+            "Error al invocar Autorización SRI:\n```\n" + traceback.format_exc() + "\n```",
         )
+        poller2._schedule_next(doc.name, clave, ambiente_used, attempt=0)
         return
 
     a_estado = (auto.get("estado") or "").upper()
     a_msgs = auto.get("mensajes") or []
-    autorizado_xml = auto.get("xml_autorizado")  # str if AUTORIZADO
+    autorizado_xml = auto.get("xml_autorizado")
 
     if a_estado == "AUTORIZADO" and autorizado_xml:
-        # Persist autorizado XML as a File attached to the queue row
         base_name = os.path.splitext(os.path.basename(signed_path))[0]
         auth_filename = f"{base_name}.autorizado.xml"
-        file_url = _attach_private_file(doc, auth_filename, autorizado_xml.encode("utf-8"))
+        file_url = _attach_private_file(
+            doc, auth_filename, autorizado_xml.encode("utf-8")
+        )
         _append_comment(
             doc,
-            _format_msgs("SRI (Autorización) AUTORIZADO", a_msgs) + f"\nArchivo: `{file_url}`"
+            _format_msgs("SRI (Autorización) AUTORIZADO", a_msgs)
+            + f"\nArchivo: `{file_url}`",
         )
         _db_set_state(doc, "Autorizado")
         return
@@ -185,21 +235,22 @@ def _handle_transmission(doc):
         _db_set_state(doc, "Devuelto")
         return
 
-    # Fallback: leave in Enviado if still pending
+    # Pending / PPR
     _append_comment(
         doc,
-        _format_msgs(f"SRI (Autorización) {a_estado or 'SIN RESPUESTA'}", a_msgs)
-        + "\nSeguiremos en **Enviado**; reintentar más tarde."
+        _format_msgs(f"SRI (Autorización) {a_estado or 'PPR'}", a_msgs)
+        + "\nSeguiremos en **Enviado**; reintento en segundo plano.",
     )
-    
+    poller2._schedule_next(doc.name, clave, ambiente_used, attempt=0)
+
+
+# -------------------------
+# Utility helpers
+# -------------------------
 def _resolve_fs_path(file_url: str) -> str:
-    """
-    Convert a file_url like '/private/files/Firmado/xxx.xml' or 'private/files/Firmado/xxx.xml'
-    to an absolute FS path under the current site's directory.
-    """
     if not file_url:
         frappe.throw("Queue row has empty xml_file path (se esperaba XML Firmado).")
-    site_root = frappe.get_site_path()  # e.g., /home/bench/sites/dev.example.com
+    site_root = frappe.get_site_path()
     cleaned = file_url.lstrip("/")
     return os.path.join(site_root, cleaned)
 
@@ -212,9 +263,6 @@ def _read_bytes(path: str) -> bytes:
 
 
 def _extract_clave_acceso(xml_bytes: bytes) -> str | None:
-    """
-    Best-effort extraction of <claveAcceso> from XML.
-    """
     try:
         text = xml_bytes.decode("utf-8", errors="ignore")
         m = re.search(r"<claveAcceso>\s*([0-9]{10,60})\s*</claveAcceso>", text)
@@ -223,35 +271,24 @@ def _extract_clave_acceso(xml_bytes: bytes) -> str | None:
         return None
 
 
-def _attach_private_file(doc, filename: str, content: bytes) -> str:
-    """
-    Store a private File attached to the queue document and return file_url.
-    """
-    filedoc = frappe.get_doc({
-        "doctype": "File",
-        "file_name": filename,
-        "is_private": 1,
-        "attached_to_doctype": doc.doctype,
-        "attached_to_name": doc.name,
-        "content": content,
-        "folder": "Home/Attachments",
-    }).insert(ignore_permissions=True)
-    return filedoc.file_url
+@frappe.whitelist()
+def recheck_authorization_now(name: str):
+    doc = frappe.get_doc("SRI XML Queue", name)
+    from josfe.sri_invoicing.transmission import poller2
 
-
-def _append_comment(doc, message: str):
-    frappe.get_doc({
-        "doctype": "Comment",
-        "comment_type": "Info",
-        "reference_doctype": doc.doctype,
-        "reference_name": doc.name,
-        "content": message,
-        "seen": 0,
-    }).insert(ignore_permissions=True)
-
-
-def _db_set_state(doc, new_state: str):
-    doc.db_set("state", new_state)
-    # Keep modified consistent
-    doc.db_set("modified", now_datetime())
-    frappe.db.commit()
+    signed_path = _resolve_fs_path(doc.xml_file)
+    xml_bytes = _read_bytes(signed_path)
+    clave = (
+        _extract_clave_acceso(xml_bytes)
+        or getattr(doc, "clave_acceso", None)
+        or getattr(doc, "access_key", None)
+    )
+    recep_amb = "Pruebas"
+    try:
+        recep_amb = soap._ambiente_from_xml(xml_bytes)
+    except Exception:
+        pass
+    poller2.poll_autorizacion_job(
+        queue_name=doc.name, clave=clave, ambiente=recep_amb, attempt=0
+    )
+    return {"ok": True}

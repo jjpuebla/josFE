@@ -23,7 +23,7 @@ def _ensure_stage_dir(stage_folder: str) -> str:
 
 def _write_xml_to_stage(filename: str, xml: str, stage_folder: str) -> str:
     """
-    Write XML as a real file under /private/files/<stage_folder>/<filename>.
+    Write XML under /private/files/<stage_folder>/<filename>.
     Return file_url (/private/files/<stage_folder>/<filename>).
     """
     full_dir = _ensure_stage_dir(stage_folder)
@@ -38,19 +38,13 @@ def _write_xml_to_stage(filename: str, xml: str, stage_folder: str) -> str:
 
 @frappe.whitelist()
 def build_xml_for_queue(qname: str) -> str:
-    """
-    Build raw XML for the queue row, save it as a private File in 'Generado',
-    attach to the queue, set state to 'Generado', and return file_url.
-    (Does not auto-advance to 'Firmado' — user action will.)
-    """
+    """Generate XML for a queue row and persist path in xml_file (Generado stage)."""
     q = frappe.get_doc(QUEUE_DTYPE, qname)
-    if not q.sales_invoice:
-        frappe.throw(_("La cola no tiene Sales Invoice asociado."))
 
     try:
         si = frappe.get_doc("Sales Invoice", q.sales_invoice)
 
-        # Deterministic builder
+        # Build raw XML (no ds:Signature in Generado)
         xml, meta = build_factura_xml(si.name)
 
         estab = (meta.get("estab") or "000").zfill(3)
@@ -58,36 +52,16 @@ def build_xml_for_queue(qname: str) -> str:
         sec   = (meta.get("secuencial") or "0").zfill(9)
         filename = f"{estab}-{pto}-{sec}.xml"
 
-        # Save under "Generado"
         file_url = _write_xml_to_stage(filename, xml, "Generado")
 
-        # Keep exactly ONE attachment on the queue row: delete previous if any
-        for fname in frappe.get_all(
-            "File",
-            filters={"attached_to_doctype": QUEUE_DTYPE, "attached_to_name": q.name},
-            pluck="name",
-        ):
-            frappe.delete_doc("File", fname, force=True, ignore_permissions=True)
-
-        # Create File doc pointing to disk file (no DB content)
-        frappe.get_doc({
-            "doctype": "File",
-            "file_name": filename,
-            "file_url": file_url,
-            "is_private": 1,
-            "attached_to_doctype": QUEUE_DTYPE,
-            "attached_to_name": q.name,
-        }).insert(ignore_permissions=True)
-
+        # Store file path directly (no File doc)
         q.db_set("xml_file", file_url)
-        q.db_set("state", SRIQueueState.Generado.value)
-        q.db_set("last_error", "")
 
         return file_url
 
     except Exception as e:
-        q.db_set("last_error", frappe.get_traceback())
-        frappe.throw(_("Error al construir XML: {0}").format(e))
+        frappe.log_error(f"Error building XML for {qname}: {e}", "SRI XML Queue")
+        raise
 
 def enqueue_on_sales_invoice_submit(doc, method):
     """Hook: enqueue SI to the SRI XML Queue on submit."""

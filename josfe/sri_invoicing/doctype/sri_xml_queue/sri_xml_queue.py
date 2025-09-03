@@ -2,6 +2,7 @@
 # apps/josfe/josfe/sri_invoicing/doctype/sri_xml_queue/sri_xml_queue.py
 
 import frappe
+import os
 from frappe.model.document import Document
 from enum import Enum
 from typing import Dict, Set, Optional
@@ -97,25 +98,18 @@ import os
 
 @frappe.whitelist()
 def get_xml_preview(name: str):
-    """Return XML content from the attached file on disk for preview dialog."""
+    """Return XML content from disk for preview dialog."""
     doc = frappe.get_doc("SRI XML Queue", name)
     if not doc.xml_file:
         return ""
 
     try:
-        file_doc = frappe.get_doc("File", {
-            "attached_to_doctype": "SRI XML Queue",
-            "attached_to_name": name
-        })
-        if not file_doc.file_url:
-            return ""
-
         base = frappe.get_site_path("private", "files")
-        rel = file_doc.file_url.replace("/private/files/", "", 1)
+        rel = doc.xml_file.replace("/private/files/", "", 1)
         path = os.path.join(base, rel)
 
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
-    except Exception as e:
-        frappe.log_error(message=frappe.get_traceback(), title="get_xml_preview failed")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "get_xml_preview error")
         return ""

@@ -29,15 +29,31 @@ def to_pretty_xml(elem: Element) -> str:
 
 def _resolve_ambiente(si) -> str:
     """
-    Conservative fallback:
-    - If FE Settings.env_override == 'Pruebas' -> '1' else '2'
-    You can later replace with your Credenciales SRI doctype lookup.
+    Resolve ambiente:
+    - Prefer Credenciales SRI.jos_ambiente for the invoice's company
+    - Fallback to FE Settings.env_override
+    - Default: '2' (Producción)
     """
     try:
+        # 1. Check Credenciales SRI for this company
+        amb = frappe.db.get_value(
+            "Credenciales SRI",
+            {"company": si.company, "jos_activo": 1},
+            "jos_ambiente"
+        )
+        if amb:
+            return "1" if amb.strip().lower().startswith("prueb") else "2"
+
+        # 2. Fallback: FE Settings
         env = frappe.db.get_single_value("FE Settings", "env_override")
-        return "1" if (env or "").strip().lower().startswith("prueb") else "2"
+        if env:
+            return "1" if env.strip().lower().startswith("prueb") else "2"
+
     except Exception:
-        return "2"
+        pass
+
+    # 3. Default
+    return "2"
 
 
 def build_factura_xml(si_name: str) -> tuple[str, dict]:
@@ -140,6 +156,11 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
         d = SubElement(detalles, "detalle")
         _text(d, "codigoPrincipal", it.item_code)
         _text(d, "descripcion", it.item_name or it.description)
+        
+        # ✅ unidadMedida (optional, but valid if present)
+        if getattr(it, "stock_uom", None):
+            _text(d, "unidadMedida", it.stock_uom)
+            
         _text(d, "cantidad", qty6(it.qty))
         _text(d, "precioUnitario", qty6(it.rate))
         _text(d, "descuento", money(D(getattr(it, "discount_amount", 0))))
@@ -158,8 +179,8 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
     if adicionales:
         infoAd = SubElement(factura, "infoAdicional")
         for campo in adicionales:
-            ca = SubElement(infoAd, "campoAdicional", {"nombre": campo["nombre"]})
-            ca.text = str(campo["valor"])
+            ca = SubElement(infoAd, "campoAdicional", {"nombre": campo["nombre"][:300]})
+            ca.text = str(campo["valor"])[:300]
 
     # -------------------------
     # Output

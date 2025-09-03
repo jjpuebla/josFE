@@ -229,7 +229,8 @@ def get_forma_pago(si) -> list[dict]:
 def map_tax_invoice(si) -> dict:
     """
     Build the invoice-level <totalImpuesto> for IVA 15%.
-    Uses net_total and grand_total as observed in your bench test.
+    At this level, SRI XSD does NOT expect <tarifa>, only:
+    codigo, codigoPorcentaje, descuentoAdicional?, baseImponible, valor
     """
     base = D(getattr(si, "net_total", 0))
     total = D(getattr(si, "grand_total", 0))
@@ -237,7 +238,7 @@ def map_tax_invoice(si) -> dict:
     return {
         "codigo": "2",               # IVA
         "codigoPorcentaje": "4",     # 15%
-        "tarifa": "15.00",
+        # "tarifa": "15.00",
         "baseImponible": money(base),
         "valor": money(iva_val),
     }

@@ -1,4 +1,10 @@
-// apps/josfe/josfe/sri_invoicing/doctype/sri_xml_queue/sri_xml_queue_list.js
+/* SRI XML Queue — resilient listview behaviors:
+   - Stable transition buttons (no stale toolbar)
+   - Selection watching via MutationObserver (no setTimeout)
+   - Force refresh + rebind after transitions
+   - Cross-tab realtime refresh via frappe.realtime
+   - Wider "Estado" column
+*/
 
 frappe.listview_settings["SRI XML Queue"] = {
   get_indicator(doc) {
@@ -19,23 +25,40 @@ frappe.listview_settings["SRI XML Queue"] = {
   onload(listview) {
     if (!frappe.user_roles.includes("FE Admin")) return;
 
-    // hide "+ Add SRI XML Queue" and default "Actions" dropdown
-    const addBtn = document.querySelector(
-      'button.primary-action[data-label^="Add SRI XML Queue"]'
-    );
-    if (addBtn) addBtn.style.display = "none";
-    const actionsGroup = document.querySelector(".actions-btn-group");
-    if (actionsGroup) actionsGroup.style.display = "none";
+    // --- helpers ---
+    const getToolbar = () =>
+      document.querySelector(".flex.col.page-actions .standard-actions");
 
-    const toolbar = document.querySelector(
-      ".flex.col.page-actions .standard-actions"
-    );
+    const waitForToolbar = () =>
+      new Promise((resolve) => {
+        const t = getToolbar();
+        if (t) return resolve(t);
+        const mo = new MutationObserver(() => {
+          const found = getToolbar();
+          if (found) {
+            mo.disconnect();
+            resolve(found);
+          }
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+      });
 
-    function clear_transition_buttons() {
-      toolbar?.querySelectorAll(".jos-transition-btn").forEach((b) => b.remove());
-    }
+    const clear_transition_buttons = () => {
+      const t = getToolbar();
+      (t || document).querySelectorAll(".jos-transition-btn").forEach((b) => b.remove());
+    };
 
-    function deselect_and_refresh() {
+    let rafScheduled = false;
+    const scheduleRefreshButtons = () => {
+      if (rafScheduled) return;
+      rafScheduled = true;
+      requestAnimationFrame(() => {
+        rafScheduled = false;
+        refresh_buttons();
+      });
+    };
+
+    const deselect_and_refresh = () => {
       try {
         listview.$result
           .find('input.list-row-checkbox:checked')
@@ -43,31 +66,47 @@ frappe.listview_settings["SRI XML Queue"] = {
           .trigger("change");
       } catch (_) {}
       listview.refresh();
-      frappe.after_ajax(() => {
-        refresh_buttons();
-      });
-    }
+      // Re-run after network + paint
+      frappe.after_ajax(() => scheduleRefreshButtons());
+    };
 
+    // --- hide "+ Add" and default "Actions" ---
+    (function hideDefaults() {
+      const addBtn = document.querySelector(
+        'button.primary-action[data-label^="Add SRI XML Queue"]'
+      );
+      if (addBtn) addBtn.style.display = "none";
+      const actionsGroup = document.querySelector(".actions-btn-group");
+      if (actionsGroup) actionsGroup.style.display = "none";
+    })();
+
+    // --- Transition buttons lifecycle ---
     async function refresh_buttons() {
       clear_transition_buttons();
 
-      const selected = listview.get_checked_items();
+      const selected = listview.get_checked_items?.() || [];
       if (!selected.length) return;
 
+      // All selected in same state?
       const first_state = (selected[0].state || "").trim();
-      const same_state = selected.every(
-        (d) => (d.state || "").trim() === first_state
-      );
+      const same_state = selected.every((d) => (d.state || "").trim() === first_state);
       if (!same_state) return;
 
-      let r = await frappe.call({
+      // Ask server which transitions apply to the FIRST item (enforce uniformity)
+      let r;
+      try {
+        r = await frappe.call({
         method:
           "josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue.get_allowed_transitions",
         args: { name: selected[0].name },
       });
+      } catch (e) {
+        return;
+      }
       const transitions = r.message || [];
       if (!transitions.length) return;
 
+      const toolbar = await waitForToolbar();
       transitions.forEach((to_state) => {
         const btn = document.createElement("button");
         btn.className = "btn btn-sm btn-primary jos-transition-btn";
@@ -94,18 +133,37 @@ frappe.listview_settings["SRI XML Queue"] = {
               indicator: "green",
             });
           }
+          // Force list refresh so the status pill + badges reflect new state
           deselect_and_refresh();
         };
-        toolbar?.appendChild(btn);
+        toolbar.appendChild(btn);
       });
     }
 
-    // selection watcher
-    listview.$result.on("change", "input.list-row-checkbox", () => {
-      refresh_buttons();
-    });
+    // Watch selection changes robustly (no setTimeout)
+    (function installSelectionWatchers() {
+      // Event listener (fast path)
+      listview.$result.on("change", "input.list-row-checkbox", scheduleRefreshButtons);
 
-    // === Auto-fit widths ===
+      // Attributes watcher (race-proof on re-renders / bulk ticks)
+      const root = listview.$result && listview.$result[0];
+      if (!root) return;
+      const watchCheckboxes = () => {
+        root
+          .querySelectorAll("input.list-row-checkbox")
+          .forEach((cb) =>
+            observer.observe(cb, { attributes: true, attributeFilter: ["checked", "aria-checked"] })
+          );
+      };
+      const observer = new MutationObserver(() => scheduleRefreshButtons());
+      watchCheckboxes();
+
+      // Re-bind any time rows are re-rendered
+      const rowsMO = new MutationObserver(() => watchCheckboxes());
+      rowsMO.observe(root, { childList: true, subtree: true });
+    })();
+
+    // === Auto-fit widths (wider Estado) ===
     (function decorateCols() {
       const root = listview.$result && listview.$result[0];
       if (!root) return;
@@ -127,35 +185,33 @@ frappe.listview_settings["SRI XML Queue"] = {
         root
           .querySelectorAll(".list-row-head .list-row-col.list-subject")
           .forEach((c) => autoFitCell(c, 185, 200));
+
+        // Estado/status column — widen to 150–240
         root
-          .querySelectorAll(
-            '.list-row-col .indicator-pill[data-filter^="state"]'
-          )
+          .querySelectorAll('.list-row-col .indicator-pill[data-filter^="state"]')
           .forEach((c) => {
             const cell = c.closest(".list-row-col");
-            if (cell) autoFitCell(cell, 100, 160);
+            if (cell) autoFitCell(cell, 150, 240);
           });
         root
           .querySelectorAll(".list-row-head .list-row-col span")
           .forEach((span) => {
             if (span.textContent.trim() === "Status") {
-              span.textContent = "Estado";  // rename header
+              span.textContent = "Estado";
               const cell = span.closest(".list-row-col");
-              if (cell) autoFitCell(cell, 100, 160);
+              if (cell) autoFitCell(cell, 150, 240);
             }
           });
+
+        // Sales Invoice column
         root
-          .querySelectorAll(
-            '.list-row-col .filterable[data-filter^="sales_invoice"]'
-          )
+          .querySelectorAll('.list-row-col .filterable[data-filter^="sales_invoice"]')
           .forEach((c) => {
             const cell = c.closest(".list-row-col");
             if (cell) autoFitCell(cell, 155, 165);
           });
         root
-          .querySelectorAll(
-            '.list-row-head .list-row-col span[data-sort-by="sales_invoice"]'
-          )
+          .querySelectorAll('.list-row-head .list-row-col span[data-sort-by="sales_invoice"]')
           .forEach((span) => {
             const cell = span.closest(".list-row-col");
             if (cell) autoFitCell(cell, 155, 165);
@@ -176,11 +232,8 @@ frappe.listview_settings["SRI XML Queue"] = {
     if (!container) return;
 
     const decorate = () => {
-      const pills = container.querySelectorAll(
-        ".indicator-pill .ellipsis, .indicator-pill"
-      );
-      pills.forEach((el) => {
-        const node = el;
+      const pills = container.querySelectorAll(".indicator-pill .ellipsis, .indicator-pill");
+      pills.forEach((node) => {
         const stateText = (node.textContent || "").trim();
         const steps = compute_steps(stateText);
         if (!steps || !steps.length) return;
@@ -206,9 +259,17 @@ frappe.listview_settings["SRI XML Queue"] = {
     decorate();
     const mo = new MutationObserver(() => decorate());
     mo.observe(container, { childList: true, subtree: true });
+
+    // --- Cross-tab realtime refresh ---
+    // Server must publish 'sri_xml_queue_changed' when a row is inserted/updated.
+    frappe.realtime.on("sri_xml_queue_changed", () => {
+      // Lightweight: just refresh current list (keeps filters/sort)
+      listview.refresh();
+    });
   },
 };
 
+// === helpers retained ===
 function compute_steps(state_label) {
   const s = (state_label || "").toLowerCase();
   if (s.startsWith("generado")) return ["G"];

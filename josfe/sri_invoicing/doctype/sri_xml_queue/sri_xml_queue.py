@@ -79,12 +79,26 @@ class SRIXMLQueue(Document):
         self.state = to_state_e.value
         self.save(ignore_permissions=True)
 
-# Convenience/guarded APIs
+# --- Whitelisted APIs ---
+
 @frappe.whitelist()
-def transition(name: str, to_state: str, reason: Optional[str] = None):
-    doc = frappe.get_doc("SRI XML Queue", name)
-    doc.transition_to(to_state, reason)
-    return doc.name
+def transition(name: str, to_state: str):
+    """Perform a state transition and notify all clients."""
+    doc: SRIXMLQueue = frappe.get_doc("SRI XML Queue", name)
+    doc.transition_to(to_state)
+
+    try:
+        frappe.publish_realtime(
+            "sri_xml_queue_changed",
+            {"name": doc.name, "state": doc.state},
+            user=None,
+            doctype="SRI XML Queue",
+        )
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "realtime publish failed")
+
+    return {"ok": True, "name": doc.name, "state": doc.state}
+
 
 @frappe.whitelist()
 def get_allowed_transitions(name: str):

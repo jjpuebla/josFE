@@ -57,6 +57,13 @@ def build_xml_for_queue(qname: str) -> str:
         # Store file path directly (no File doc)
         q.db_set("xml_file", file_url)
 
+        # 🔔 Notify once XML is ready
+        frappe.publish_realtime(
+            "sri_xml_queue_changed",
+            {"name": q.name, "state": q.state},
+            user=None,
+            doctype=QUEUE_DTYPE,
+        )
         return file_url
 
     except Exception as e:
@@ -72,12 +79,26 @@ def enqueue_on_sales_invoice_cancel(doc, method):
     qname = frappe.db.exists(QUEUE_DTYPE, {"sales_invoice": doc.name})
     if qname:
         frappe.db.set_value(QUEUE_DTYPE, qname, "state", SRIQueueState.Cancelado.value)
+        # 🔔 Notify tabs that state changed to Cancelado
+        frappe.publish_realtime(
+            "sri_xml_queue_changed",
+            {"name": qname, "state": SRIQueueState.Cancelado.value},
+            user=None,
+            doctype=QUEUE_DTYPE,
+        )
 
 def enqueue_on_sales_invoice_trash(doc, method):
     """Hook: delete queue row if SI is deleted."""
     qname = frappe.db.exists(QUEUE_DTYPE, {"sales_invoice": doc.name})
     if qname:
         frappe.delete_doc(QUEUE_DTYPE, qname, force=True)
+        # 🔔 Notify tabs to refresh (we only send a hint; client just refreshes)
+        frappe.publish_realtime(
+            "sri_xml_queue_changed",
+            {"deleted": qname},
+            user=None,
+            doctype=QUEUE_DTYPE,
+        )
 
 # Some installs referenced this name in hooks; keep alias to be safe
 on_sales_invoice_trash = enqueue_on_sales_invoice_trash
@@ -103,10 +124,24 @@ def enqueue_for_sales_invoice(si_name: str) -> str:
 
     frappe.db.commit()
 
+    # 🔔 Notify once: new row exists
+    frappe.publish_realtime(
+        "sri_xml_queue_changed",
+        {"name": q.name, "state": q.state},
+        user=None,
+        doctype=QUEUE_DTYPE,
+    )
+
     try:
-        build_xml_for_queue(q.name)
+        build_xml_for_queue(q.name)  # publishes when XML ready
     except Exception as e:
         frappe.log_error(message=f"XML build failed for {q.name}: {e}", title="SRI XML Queue")
         frappe.db.set_value(QUEUE_DTYPE, q.name, "state", SRIQueueState.Error.value)
+        frappe.publish_realtime(
+            "sri_xml_queue_changed",
+            {"name": q.name, "state": SRIQueueState.Error.value},
+            user=None,
+            doctype=QUEUE_DTYPE,
+        )
 
     return q.name

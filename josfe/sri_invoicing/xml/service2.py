@@ -101,13 +101,28 @@ def _handle_signing(doc):
             _db_set_state(doc, "Error")
             return
 
-        # 4) Save under Firmado/
-        base_name = os.path.splitext(os.path.basename(xml_path))[0]
-        file_url = _attach_private_file(doc, f"Firmado/{base_name}.xml", signed_bytes)
+        # 4) Save under /private/files/Firmado/
+        base_dir = frappe.get_site_path("private", "files", "Firmado")
+        os.makedirs(base_dir, exist_ok=True)
+
+        # Build filename: keep invoice number pattern if possible
+        file_name = os.path.basename(xml_path)  # e.g., 002-002-000000154.xml
+        if not file_name.endswith(".xml"):
+            file_name = f"{os.path.splitext(file_name)[0]}.xml"
+
+        fs_path = os.path.join(base_dir, file_name)
+        with open(fs_path, "wb") as f:
+            f.write(signed_bytes)
+
+        file_url = f"/private/files/Firmado/{file_name}"
 
         # 5) Update queue row to point to signed file + state
         doc.db_set("xml_file", file_url)
-        _db_set_state(doc, "Firmado")
+        _doc_state = "Firmado"
+        _db_set_state(doc, _doc_state)
+
+        # 6) Final confirmation in timeline
+        _append_comment(doc, f"**XML firmado correctamente**\n📄 Archivo: `{file_url}`")
 
         # 6) Final confirmation in timeline
         _append_comment(doc, f"**XML firmado correctamente**\nArchivo: `{file_url}`")
@@ -214,24 +229,71 @@ def _handle_transmission(doc):
 
     a_estado = (auto.get("estado") or "").upper()
     a_msgs = auto.get("mensajes") or []
-    autorizado_xml = auto.get("xml_autorizado")
+    xml_wrapper = auto.get("xml_wrapper")
 
-    if a_estado == "AUTORIZADO" and autorizado_xml:
-        base_name = os.path.splitext(os.path.basename(signed_path))[0]
-        auth_filename = f"{base_name}.autorizado.xml"
-        file_url = _attach_private_file(
-            doc, auth_filename, autorizado_xml.encode("utf-8")
-        )
+    # --- Helper: filename from estab-ptoEmi-secuencial ---
+    def _invoice_filename(inner_xml: str, suffix: str = None) -> str:
+        import re
+        try:
+            estab = re.search(r"<estab>(\d+)</estab>", inner_xml).group(1)
+            pto = re.search(r"<ptoEmi>(\d+)</ptoEmi>", inner_xml).group(1)
+            sec = re.search(r"<secuencial>(\d+)</secuencial>", inner_xml).group(1)
+            name = f"{estab}-{pto}-{sec}.xml"
+            if suffix:
+                name = f"{estab}-{pto}-{sec}-{suffix}.xml"
+            return name
+        except Exception:
+            # fallback: base on signed file
+            base_name = os.path.splitext(os.path.basename(signed_path))[0]
+            return f"{base_name}.xml"
+
+    if a_estado == "AUTORIZADO" and xml_wrapper:
+        # Build filename from inner XML
+        inner_xml = auto.get("xml_autorizado") or ""
+        file_name = _invoice_filename(inner_xml)
+
+        # Save manually into /private/files/Autorizado/
+        base_dir = frappe.get_site_path("private", "files", "Autorizado")
+        os.makedirs(base_dir, exist_ok=True)
+        fs_path = os.path.join(base_dir, file_name)
+        with open(fs_path, "w", encoding="utf-8") as f:
+            f.write(xml_wrapper)
+
+        file_url = f"/private/files/Autorizado/{file_name}"
+
+        # Point preview to wrapper file
+        doc.db_set("xml_file", file_url)
+
         _append_comment(
             doc,
-            _format_msgs("SRI (Autorización) AUTORIZADO", a_msgs)
-            + f"\nArchivo: `{file_url}`",
+            _format_msgs("✔ SRI (Autorización) **AUTORIZADO**", a_msgs)
+            + f"\n📄 Archivo final con wrapper SRI: `{file_url}`",
         )
         _db_set_state(doc, "Autorizado")
         return
 
     if a_estado in {"NO AUTORIZADO", "RECHAZADO", "DEVUELTA"}:
-        _append_comment(doc, _format_msgs(f"SRI (Autorización) {a_estado}", a_msgs))
+        if xml_wrapper:
+            inner_xml = auto.get("xml_autorizado") or ""
+            file_name = _invoice_filename(inner_xml, "devuelto")
+
+            base_dir = frappe.get_site_path("private", "files", "Devuelto")
+            os.makedirs(base_dir, exist_ok=True)
+            fs_path = os.path.join(base_dir, file_name)
+            with open(fs_path, "w", encoding="utf-8") as f:
+                f.write(xml_wrapper)
+
+            file_url = f"/private/files/Devuelto/{file_name}"
+
+            doc.db_set("xml_file", file_url)
+
+            _append_comment(
+                doc,
+                _format_msgs(f"⚠️ SRI (Autorización) {a_estado}", a_msgs)
+                + f"\n📄 Archivo final con wrapper SRI: `{file_url}`",
+            )
+        else:
+            _append_comment(doc, _format_msgs(f"SRI (Autorización) {a_estado}", a_msgs))
         _db_set_state(doc, "Devuelto")
         return
 

@@ -95,10 +95,6 @@ def enviar_recepcion(xml_bytes: bytes, ambiente: Optional[str] = None) -> Dict[s
     return {"estado": estado, "mensajes": mensajes, "raw_xml": raw_xml, "ambiente": amb}
 
 def consultar_autorizacion(clave_acceso: str, ambiente: str) -> Dict[str, Any]:
-    """
-    Query SRI Autorización for the given access key and ambiente.
-    Returns dict: {estado, numero, fecha, xml_autorizado, raw_xml}
-    """
     client, hist = _zeep_client("Autorización", ambiente)
     try:
         res = client.service.autorizacionComprobante(clave_acceso)
@@ -114,22 +110,25 @@ def consultar_autorizacion(clave_acceso: str, ambiente: str) -> Dict[str, Any]:
     if isinstance(auths, dict):
         auths = [auths]
     if not auths:
-        return {"estado": "PPR", "raw_xml": raw_xml}  # En Proceso / no payload yet
+        return {"estado": "PPR", "raw_xml": raw_xml}  # processing
 
     a0 = auths[0]
     estado = (a0.get("estado") or "").upper()
     numero = a0.get("numeroAutorizacion")
     fecha = a0.get("fechaAutorizacion")
-    xml_autorizado = a0.get("comprobante")  # original XML as string
+    xml_inner = a0.get("comprobante")  # original XML as string
+    xml_wrapper = _build_autorizacion_wrapper(a0)
 
     out = {
         "estado": estado,
         "numero": numero,
         "fecha": fecha,
-        "xml_autorizado": xml_autorizado,
+        "xml_autorizado": xml_inner,
+        "xml_wrapper": xml_wrapper,
         "raw_xml": raw_xml,
     }
-    # Attach mensajes if present (consistent shape with Recepción)
+
+    # keep mensajes (as you already do)
     try:
         mm = (a0.get("mensajes") or {}).get("mensaje") or []
         if isinstance(mm, dict):
@@ -144,3 +143,67 @@ def consultar_autorizacion(clave_acceso: str, ambiente: str) -> Dict[str, Any]:
         pass
 
     return out
+
+def _build_autorizacion_wrapper(a0: dict) -> str:
+    """
+    Build a compact <autorizacion> XML wrapper, embedding the original comprobante in CDATA.
+    a0 is the first item in 'autorizaciones/autorizacion' from SRI.
+    """
+    import datetime
+
+    def _fmt(value):
+        if isinstance(value, datetime.datetime):
+            # Format like "2025-09-04T09:16:19"
+            return value.isoformat()
+        if value is None:
+            return ""
+        return str(value).strip()
+
+    estado = _fmt(a0.get("estado")).upper()
+    numero = _fmt(a0.get("numeroAutorizacion"))
+    fecha  = _fmt(a0.get("fechaAutorizacion"))
+    ambiente = _fmt(a0.get("ambiente"))
+    inner = _fmt(a0.get("comprobante"))
+
+    # mensajes (present on NAT/DEVUELTO or warnings)
+    mensajes = []
+    mm = (a0.get("mensajes") or {}).get("mensaje") or []
+    if isinstance(mm, dict):
+        mm = [mm]
+    for m in mm:
+        mensajes.append({
+            "identificador": _fmt(m.get("identificador")),
+            "mensaje": _fmt(m.get("mensaje")),
+            "informacionAdicional": _fmt(m.get("informacionAdicional")),
+            "tipo": _fmt(m.get("tipo")),
+        })
+
+    # Compose wrapper
+    parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<autorizacion>',
+        f'  <estado>{estado}</estado>',
+        f'  <numeroAutorizacion>{numero}</numeroAutorizacion>',
+        f'  <fechaAutorizacion>{fecha}</fechaAutorizacion>',
+    ]
+    if ambiente:
+        parts.append(f'  <ambiente>{ambiente}</ambiente>')
+    parts.append('  <comprobante><![CDATA[' + inner + ']]></comprobante>')
+
+    if mensajes:
+        parts.append('  <mensajes>')
+        for m in mensajes:
+            parts.append('    <mensaje>')
+            if m["identificador"]:
+                parts.append(f'      <identificador>{m["identificador"]}</identificador>')
+            if m["mensaje"]:
+                parts.append(f'      <mensaje>{m["mensaje"]}</mensaje>')
+            if m["informacionAdicional"]:
+                parts.append(f'      <informacionAdicional>{m["informacionAdicional"]}</informacionAdicional>')
+            if m["tipo"]:
+                parts.append(f'      <tipo>{m["tipo"]}</tipo>')
+            parts.append('    </mensaje>')
+        parts.append('  </mensajes>')
+
+    parts.append('</autorizacion>')
+    return "\n".join(parts)

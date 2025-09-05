@@ -188,7 +188,54 @@ def _handle_transmission(doc):
     mensajes = recep.get("mensajes") or []
 
     if estado == "DEVUELTA":
-        _append_comment(doc, _format_msgs("SRI (Recepción) DEVUELTA", mensajes))
+        # Try to get an Autorización wrapper even when Recepción is DEVUELTA.
+        # If wrapper present, save wrapper; otherwise fallback to the signed XML we just sent.
+        ambiente_used = recep.get("ambiente") or "Pruebas"
+        clave = (
+            _extract_clave_acceso(xml_bytes)
+            or getattr(doc, "clave_acceso", None)
+            or getattr(doc, "access_key", None)
+        )
+
+        xml_wrapper = None
+        a_msgs = []
+        try:
+            if clave:
+                auto = soap.consultar_autorizacion(clave, ambiente_used)
+                xml_wrapper = auto.get("xml_wrapper")
+                a_msgs = auto.get("mensajes") or []
+        except Exception:
+            # Ignore Autorización errors here; we still save a Devuelto file below
+            pass
+
+        # Prepare folder + filename
+        base_dir = frappe.get_site_path("private", "files", "Devuelto")
+        os.makedirs(base_dir, exist_ok=True)
+
+        base_name = os.path.basename(signed_path)  # e.g. 002-002-000000160.xml
+        root_name, _ = os.path.splitext(base_name)
+        file_name = f"{root_name}-devuelto.xml"
+        fs_path = os.path.join(base_dir, file_name)
+
+        # Write wrapper if we got one; otherwise signed XML
+        if xml_wrapper:
+            with open(fs_path, "w", encoding="utf-8") as f:
+                f.write(xml_wrapper)
+        else:
+            with open(fs_path, "wb") as f:
+                f.write(xml_bytes)
+
+        file_url = f"/private/files/Devuelto/{file_name}"
+        doc.db_set("xml_file", file_url)
+
+        # Timeline note: include any Autorización messages if present
+        extra = _format_msgs(" · Autorización", a_msgs) if a_msgs else ""
+        _append_comment(
+            doc,
+            _format_msgs("SRI (Recepción) DEVUELTA", mensajes)
+            + f"\n📄 Archivo final: `{file_url}`"
+            + (f"\n{extra}" if extra else "")
+        )
         _db_set_state(doc, "Devuelto")
         return
 
@@ -273,27 +320,25 @@ def _handle_transmission(doc):
         return
 
     if a_estado in {"NO AUTORIZADO", "RECHAZADO", "DEVUELTA"}:
-        if xml_wrapper:
-            inner_xml = auto.get("xml_autorizado") or ""
-            file_name = _invoice_filename(inner_xml, "devuelto")
+        inner_xml = auto.get("xml_autorizado") or ""
+        xml_final = xml_wrapper or inner_xml   # ✅ prefer wrapper, fallback to inner
 
-            base_dir = frappe.get_site_path("private", "files", "Devuelto")
-            os.makedirs(base_dir, exist_ok=True)
-            fs_path = os.path.join(base_dir, file_name)
-            with open(fs_path, "w", encoding="utf-8") as f:
-                f.write(xml_wrapper)
+        file_name = _invoice_filename(inner_xml, "devuelto")
+        base_dir = frappe.get_site_path("private", "files", "Devuelto")
+        os.makedirs(base_dir, exist_ok=True)
 
-            file_url = f"/private/files/Devuelto/{file_name}"
+        fs_path = os.path.join(base_dir, file_name)
+        with open(fs_path, "w", encoding="utf-8") as f:
+            f.write(xml_final)
 
-            doc.db_set("xml_file", file_url)
+        file_url = f"/private/files/Devuelto/{file_name}"
+        doc.db_set("xml_file", file_url)
 
-            _append_comment(
-                doc,
-                _format_msgs(f"⚠️ SRI (Autorización) {a_estado}", a_msgs)
-                + f"\n📄 Archivo final con wrapper SRI: `{file_url}`",
-            )
-        else:
-            _append_comment(doc, _format_msgs(f"SRI (Autorización) {a_estado}", a_msgs))
+        _append_comment(
+            doc,
+            _format_msgs(f"⚠️ SRI (Autorización) {a_estado}", a_msgs)
+            + f"\n📄 Archivo final con wrapper SRI: `{file_url}`",
+        )
         _db_set_state(doc, "Devuelto")
         return
 

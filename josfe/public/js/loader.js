@@ -15,7 +15,6 @@
     Supplier: ["/assets/josfe/js/phone_utils.js", "/assets/josfe/js/tax_id_utils.js", "/assets/josfe/js/contact_html_enhancer.js"],
     Contact:  ["/assets/josfe/js/phone_utils.js", "/assets/josfe/js/contact_html_enhancer.js"],
     Company:  ["/assets/josfe/js/tax_id_utils.js"],
-    "Credenciales SRI": ["/assets/josfe/js/sri_invoicing/sri_credential.js"],
 
     "Sales Invoice":              ["/assets/josfe/js/user_location/form_location_lock.js"],
     "Nota de Crédito":            ["/assets/josfe/js/user_location/form_location_lock.js"],

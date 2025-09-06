@@ -1,7 +1,7 @@
 {
  "actions": [],
  "autoname": "format:{company}-{#}",
- "creation": "2025-08-16 11:40:58.326849",
+ "creation": "2025-09-05 09:27:38.765224",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -60,7 +60,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-16 18:09:47.089377",
+ "modified": "2025-09-05 09:32:31.033705",
  "modified_by": "Administrator",
  "module": "sri_invoicing",
  "name": "Credenciales SRI",

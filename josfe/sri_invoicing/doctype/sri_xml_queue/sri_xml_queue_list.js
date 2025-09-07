@@ -1,6 +1,7 @@
-/* SRI XML Queue — resilient listview behaviors:
-   - Stable transition buttons (no stale toolbar)
-   - Selection watching via MutationObserver (no setTimeout)
+/* SRI XML Queue — resilient listview behaviors (rewritten):
+   - Transition buttons labeled: "Firmar" / "Enviar" / "Reenviar"
+   - Server still receives raw states: "Firmado" / "Enviado"
+   - Stable toolbar (no stale buttons), no setTimeout; uses MutationObserver + rAF
    - Force refresh + rebind after transitions
    - Cross-tab realtime refresh via frappe.realtime
    - Wider "Estado" column
@@ -23,6 +24,7 @@ frappe.listview_settings["SRI XML Queue"] = {
   },
 
   onload(listview) {
+    // Limit special controls to FE Admins (matches previous behavior)
     if (!frappe.user_roles.includes("FE Admin")) return;
 
     // --- helpers ---
@@ -48,6 +50,15 @@ frappe.listview_settings["SRI XML Queue"] = {
       (t || document).querySelectorAll(".jos-transition-btn").forEach((b) => b.remove());
     };
 
+    // Label mapping for buttons while keeping raw "to_state" payload
+    function label_for(to_state, current_state) {
+      if (to_state === "Firmado") return "Firmar";
+      if (to_state === "Enviado") {
+        return (current_state === "Enviado" ? "Reenviar" : "Enviar");
+      }
+      return to_state; // default/fallback
+    }
+
     let rafScheduled = false;
     const scheduleRefreshButtons = () => {
       if (rafScheduled) return;
@@ -66,11 +77,11 @@ frappe.listview_settings["SRI XML Queue"] = {
           .trigger("change");
       } catch (_) {}
       listview.refresh();
-      // Re-run after network + paint
+      // Re-run after network + paint (no setTimeout)
       frappe.after_ajax(() => scheduleRefreshButtons());
     };
 
-    // --- hide "+ Add" and default "Actions" ---
+    // --- hide "+ Add" and default "Actions" to avoid confusion ---
     (function hideDefaults() {
       const addBtn = document.querySelector(
         'button.primary-action[data-label^="Add SRI XML Queue"]'
@@ -87,7 +98,7 @@ frappe.listview_settings["SRI XML Queue"] = {
       const selected = listview.get_checked_items?.() || [];
       if (!selected.length) return;
 
-      // All selected in same state?
+      // Require uniform state for all selected items (consistent with server simplification)
       const first_state = (selected[0].state || "").trim();
       const same_state = selected.every((d) => (d.state || "").trim() === first_state);
       if (!same_state) return;
@@ -96,46 +107,58 @@ frappe.listview_settings["SRI XML Queue"] = {
       let r;
       try {
         r = await frappe.call({
-        method:
-          "josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue.get_allowed_transitions",
-        args: { name: selected[0].name },
-      });
+          method: "josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue.get_allowed_transitions",
+          args: { name: selected[0].name },
+        });
       } catch (e) {
         return;
       }
-      const transitions = r.message || [];
+      const transitions = (r && r.message) || [];
       if (!transitions.length) return;
 
+      // Get the up-to-date current state from DB for accurate label (esp. Enviado → Reenviar)
+      let currentState = first_state;
+      try {
+        const { message } = await frappe.db.get_value(
+          "SRI XML Queue",
+          selected[0].name,
+          ["state"]
+        );
+        currentState = (message && message.state) || first_state;
+      } catch (_) {}
+
       const toolbar = await waitForToolbar();
+
       transitions.forEach((to_state) => {
         const btn = document.createElement("button");
         btn.className = "btn btn-sm btn-primary jos-transition-btn";
-        btn.innerText = "→ " + to_state;
+        btn.innerText = "→ " + label_for(to_state, currentState);
+
         btn.onclick = async () => {
-          frappe.show_alert({ message: __("Actualizando…"), indicator: "blue" });
-          let failures = [];
-          for (const n of selected.map((d) => d.name)) {
+          frappe.show_alert({ message: __("Procesando…"), indicator: "blue" });
+
+          const failures = [];
+          for (const it of selected) {
             try {
               await frappe.call({
-                method:
-                  "josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue.transition",
-                args: { name: n, to_state: to_state },
+                method: "josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue.transition",
+                args: { name: it.name, to_state: to_state }, // send raw state, not label
               });
             } catch (e) {
-              failures.push(`${n}: ${e.message || e}`);
+              failures.push(`${it.name}: ${e.message || e}`);
             }
           }
+
           if (failures.length) {
             frappe.msgprint(__("Fallaron:") + "<br>" + failures.join("<br>"));
           } else {
-            frappe.show_alert({
-              message: __("Actualizado correctamente"),
-              indicator: "green",
-            });
+            frappe.show_alert({ message: __("Hecho"), indicator: "green" });
           }
+
           // Force list refresh so the status pill + badges reflect new state
           deselect_and_refresh();
         };
+
         toolbar.appendChild(btn);
       });
     }
@@ -148,6 +171,8 @@ frappe.listview_settings["SRI XML Queue"] = {
       // Attributes watcher (race-proof on re-renders / bulk ticks)
       const root = listview.$result && listview.$result[0];
       if (!root) return;
+
+      const observer = new MutationObserver(() => scheduleRefreshButtons());
       const watchCheckboxes = () => {
         root
           .querySelectorAll("input.list-row-checkbox")
@@ -155,7 +180,7 @@ frappe.listview_settings["SRI XML Queue"] = {
             observer.observe(cb, { attributes: true, attributeFilter: ["checked", "aria-checked"] })
           );
       };
-      const observer = new MutationObserver(() => scheduleRefreshButtons());
+
       watchCheckboxes();
 
       // Re-bind any time rows are re-rendered
@@ -226,7 +251,7 @@ frappe.listview_settings["SRI XML Queue"] = {
       }
     })();
 
-    // ---- Cumulative letter badges ----
+    // ---- Cumulative letter badges (G F E A / etc.) ----
     inject_cumulative_badge_css_once();
     const container = listview.$result && listview.$result[0];
     if (!container) return;
@@ -261,9 +286,8 @@ frappe.listview_settings["SRI XML Queue"] = {
     mo.observe(container, { childList: true, subtree: true });
 
     // --- Cross-tab realtime refresh ---
-    // Server must publish 'sri_xml_queue_changed' when a row is inserted/updated.
+    // Server publishes 'sri_xml_queue_changed' on insert/update.
     frappe.realtime.on("sri_xml_queue_changed", () => {
-      // Lightweight: just refresh current list (keeps filters/sort)
       listview.refresh();
     });
   },

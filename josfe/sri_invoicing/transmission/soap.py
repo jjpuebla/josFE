@@ -55,7 +55,7 @@ def _zeep_client(service: str, ambiente: str) -> Tuple[Client, HistoryPlugin]:
 def enviar_recepcion(xml_bytes: bytes, ambiente: Optional[str] = None) -> Dict[str, Any]:
     """
     Send XML to SRI Recepción. If ambiente not provided, it is inferred from the XML.
-    Returns dict: {estado, mensajes, raw_xml, ambiente}
+    Returns dict: {estado, mensajes, raw_xml, ambiente, xml_wrapper?}
     """
     amb = ambiente or _ambiente_from_xml(xml_bytes)
     client, hist = _zeep_client("Recepción", amb)
@@ -92,7 +92,13 @@ def enviar_recepcion(xml_bytes: bytes, ambiente: Optional[str] = None) -> Dict[s
         # best-effort only
         pass
 
-    return {"estado": estado, "mensajes": mensajes, "raw_xml": raw_xml, "ambiente": amb}
+    # Mark DEVUELTO origin for Recepción and build a compact wrapper for storage (optional)
+    xml_wrapper = ""
+    if estado in ("DEVUELTA", "RECHAZADO"):
+        frappe.flags.sri_devuelto_origin = "Recepción"
+        xml_wrapper = _build_recepcion_wrapper(estado, mensajes, raw_xml, amb)
+
+    return {"estado": estado, "mensajes": mensajes, "raw_xml": raw_xml, "ambiente": amb, "xml_wrapper": xml_wrapper}
 
 def consultar_autorizacion(clave_acceso: str, ambiente: str) -> Dict[str, Any]:
     client, hist = _zeep_client("Autorización", ambiente)
@@ -119,6 +125,10 @@ def consultar_autorizacion(clave_acceso: str, ambiente: str) -> Dict[str, Any]:
     xml_inner = a0.get("comprobante")  # original XML as string
     xml_wrapper = _build_autorizacion_wrapper(a0)
 
+    # If NAT/DEVUELTA, tag origin=Autorización so the mover routes to NO_AUTORIZADOS
+    if estado in {"NO AUTORIZADO", "RECHAZADO", "DEVUELTA"}:
+        frappe.flags.sri_devuelto_origin = "Autorización"
+
     out = {
         "estado": estado,
         "numero": numero,
@@ -128,7 +138,7 @@ def consultar_autorizacion(clave_acceso: str, ambiente: str) -> Dict[str, Any]:
         "raw_xml": raw_xml,
     }
 
-    # keep mensajes (as you already do)
+    # keep mensajes
     try:
         mm = (a0.get("mensajes") or {}).get("mensaje") or []
         if isinstance(mm, dict):
@@ -144,6 +154,29 @@ def consultar_autorizacion(clave_acceso: str, ambiente: str) -> Dict[str, Any]:
 
     return out
 
+def _build_recepcion_wrapper(estado: str, mensajes: List[dict], raw_xml: str, ambiente: str) -> str:
+    """Compact wrapper for Recepción DEVUELTA/RECHAZADO responses."""
+    parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<respuestaRecepcion>',
+        f'  <estado>{(estado or "").upper()}</estado>',
+        f'  <ambiente>{ambiente or ""}</ambiente>',
+    ]
+    if mensajes:
+        parts.append('  <mensajes>')
+        for m in mensajes:
+            parts.append('    <mensaje>')
+            if m.get("identificador"):       parts.append(f'      <identificador>{m["identificador"]}</identificador>')
+            if m.get("mensaje"):             parts.append(f'      <mensaje>{m["mensaje"]}</mensaje>')
+            if m.get("informacionAdicional"):parts.append(f'      <informacionAdicional>{m["informacionAdicional"]}</informacionAdicional>')
+            if m.get("tipo"):                parts.append(f'      <tipo>{m["tipo"]}</tipo>')
+            parts.append('    </mensaje>')
+        parts.append('  </mensajes>')
+    if raw_xml:
+        parts.append('  <sobre><![CDATA[' + raw_xml + ']]></sobre>')
+    parts.append('</respuestaRecepcion>')
+    return "\n".join(parts)
+
 def _build_autorizacion_wrapper(a0: dict) -> str:
     """
     Build a compact <autorizacion> XML wrapper, embedding the original comprobante in CDATA.
@@ -153,7 +186,6 @@ def _build_autorizacion_wrapper(a0: dict) -> str:
 
     def _fmt(value):
         if isinstance(value, datetime.datetime):
-            # Format like "2025-09-04T09:16:19"
             return value.isoformat()
         if value is None:
             return ""

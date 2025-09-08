@@ -52,7 +52,7 @@ def build_xml_for_queue(qname: str) -> str:
         sec   = (meta.get("secuencial") or "0").zfill(9)
         filename = f"{estab}-{pto}-{sec}.xml"
 
-        file_url = _write_xml_to_stage(filename, xml, "Generado")
+        file_url = _write_xml_to_stage(filename, xml, "SRI/GENERADOS")
 
         # Store file path directly (no File doc)
         q.db_set("xml_file", file_url)

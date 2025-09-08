@@ -80,6 +80,29 @@ def _cleanup_after_authorized(filename: str) -> None:
     except Exception:
         frappe.log_error(frappe.get_traceback(), "SRI cleanup_after_authorized")
 
+def cleanup_pendiente_if_rechazado(new_url: str):
+    """
+    If a .rechazado.xml or .no_autorizado.xml exists,
+    remove the corresponding PENDIENTES .xml copy.
+    """
+    site_files = frappe.get_site_path("private", "files")
+    base = os.path.basename(new_url)
+
+    # strip suffixes like .rechazado.xml → .xml
+    if base.endswith(".rechazado.xml"):
+        orig = base.replace(".rechazado.xml", ".xml")
+    elif base.endswith(".no_autorizado.xml"):
+        orig = base.replace(".no_autorizado.xml", ".xml")
+    else:
+        return  # nothing to do
+
+    pendiente_path = os.path.join(site_files, "SRI", "FIRMADOS", "PENDIENTES", orig)
+    if os.path.exists(pendiente_path):
+        try:
+            os.remove(pendiente_path)
+            frappe.logger("sri_flow").info(f"🧹 Removed leftover pendiente: {pendiente_path}")
+        except Exception as e:
+            frappe.log_error(f"Failed to delete pendiente {pendiente_path}: {e}", "SRI XML Cleanup")
 
 # ------------------------------
 # XML helpers
@@ -208,6 +231,7 @@ def _send_to_recepcion_and_route(qdoc) -> None:
         rej_name = f"{base}.rechazado.xml"
         url = _write_to_sri(paths.SIGNED_REJECTED, rej_name, (r_wrap or "").encode("utf-8"))
         qdoc.db_set("xml_file", url)
+        cleanup_pendiente_if_rechazado(url)
         _append_comment(qdoc, _format_msgs("SRI (Recepción) DEVUELTA/RECHAZADO", r_msgs))
         _db_set_state(qdoc, "Devuelto")
         return
@@ -243,6 +267,8 @@ def _send_to_recepcion_and_route(qdoc) -> None:
         if auto.get("xml_wrapper"):
             nat_url = _write_to_sri(paths.NOT_AUTH, nat_name, auto["xml_wrapper"].encode("utf-8"))
             qdoc.db_set("xml_file", nat_url)
+
+            cleanup_pendiente_if_rechazado(nat_url)
         else:
             moved = _move_xml_file(qdoc.xml_file, "Devuelto", origin="Autorización")
             if moved:
@@ -321,6 +347,8 @@ def _process_transmission(qdoc, stage_state: str):
             rej_name = f"{base}.rechazado.xml"
             url = _write_to_sri(paths.SIGNED_REJECTED, rej_name, (r_wrap or "").encode("utf-8"))
             qdoc.db_set("xml_file", url)
+            
+            cleanup_pendiente_if_rechazado(url)
             try:
                 from josfe.sri_invoicing.xml.helpers import _append_comment, _format_msgs, _db_set_state
                 _append_comment(qdoc, _format_msgs("SRI (Recepción) DEVUELTA/RECHAZADO", r_msgs))
@@ -375,6 +403,8 @@ def _process_transmission(qdoc, stage_state: str):
             if auto.get("xml_wrapper"):
                 nat_url = _write_to_sri(paths.NOT_AUTH, nat_name, auto["xml_wrapper"].encode("utf-8"))
                 qdoc.db_set("xml_file", nat_url)
+
+                cleanup_pendiente_if_rechazado(nat_url)
             else:
                 moved = _move_xml_file(qdoc.xml_file, "Devuelto", origin="Autorización")
                 if moved:

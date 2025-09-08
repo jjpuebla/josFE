@@ -2,9 +2,38 @@
 
 import base64
 import frappe
-from zeep import Client
+from zeep import Client, Settings
 from .endpoints import resolve_wsdl, get_test_xml_b64
 
+@frappe.whitelist()
+def transmitir_dummy(cred_name: str):
+    """Transmite un XML dummy con WSDL fijo (cambiar manualmente a real)."""
+
+    # 1. Leer XML dummy
+    try:
+        test_xml_path = frappe.get_app_path("josfe", "private", "files", "dummyxml", "generado.xml")
+        with open(test_xml_path, "rb") as f:
+            xml_b64 = base64.b64encode(f.read()).decode()
+    except Exception as e:
+        return {"status": "error", "msg": f"No se pudo leer XML dummy: {e}"}
+
+    # 2. WSDL URL (fake por ahora, cámbialo a real manualmente cuando quieras)
+    # wsdl_url = "http://127.0.0.1:9999/fake?wsdl"
+    wsdl_url = "https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl"
+    
+    # 3. Intentar conectar
+    try:
+        settings = Settings(strict=True, xml_huge_tree=True)
+        client = Client(wsdl=wsdl_url, settings=settings)
+        sri_response = client.service.validarComprobante(xml_b64)
+    except Exception as e:
+        # ✅ keep title short, details in message
+        return {"status": "error", "msg": f"Error al conectar a SRI: {e}"}
+
+    # 4. Procesar respuesta
+    estado = getattr(sri_response, "estado", "SIN_ESTADO")
+    return {"status": "success", "estado": estado}
+        
 @frappe.whitelist()
 def transmitir_xml(cred_name: str):
     """Envía un XML (base64) a la Recepción del SRI usando SRI Endpoint por ambiente."""
@@ -66,3 +95,4 @@ def transmitir_xml(cred_name: str):
         pass
 
     return {"status": "success", "estado": estado, "mensajes": mensajes}
+

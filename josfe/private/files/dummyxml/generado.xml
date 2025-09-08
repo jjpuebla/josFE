@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<factura id="comprobante" version="1.0.0">
+	<infoTributaria>
+		<ambiente>2</ambiente>
+		<tipoEmision>1</tipoEmision>
+		<razonSocial>TEST</razonSocial>
+		<nombreComercial>TEST</nombreComercial>
+		<ruc>1792603418001</ruc>
+		<claveAcceso>0209202501179260341800120020010001836391234567817</claveAcceso>
+		<codDoc>01</codDoc>
+		<estab>002</estab>
+		<ptoEmi>001</ptoEmi>
+		<secuencial>000183639</secuencial>
+		<dirMatriz>AV PRIETO</dirMatriz>
+	</infoTributaria>
+	<infoFactura>
+		<fechaEmision>02/09/2025</fechaEmision>
+		<dirEstablecimiento>AV SUCRE S86</dirEstablecimiento>
+		<obligadoContabilidad>SI</obligadoContabilidad>
+		<tipoIdentificacionComprador>04</tipoIdentificacionComprador>
+		<razonSocialComprador>CARLOS RACOCHA</razonSocialComprador>
+		<identificacionComprador>1708254343001</identificacionComprador>
+		<direccionComprador>CIUDADELA BARRA</direccionComprador>
+		<totalSinImpuestos>4.18</totalSinImpuestos>
+		<totalDescuento>0.47</totalDescuento>
+		<totalConImpuestos>
+			<totalImpuesto>
+				<codigo>2</codigo>
+				<codigoPorcentaje>4</codigoPorcentaje>
+				<baseImponible>4.18</baseImponible>
+				<tarifa>15</tarifa>
+				<valor>0.63</valor>
+			</totalImpuesto>
+		</totalConImpuestos>
+		<propina>0.00</propina>
+		<importeTotal>4.81</importeTotal>
+		<moneda>DOLAR</moneda>
+		<pagos>
+			<pago>
+				<formaPago>01</formaPago>
+				<total>4.81</total>
+			</pago>
+		</pagos>
+	</infoFactura>
+	<detalles>
+		<detalle>
+			<codigoPrincipal>PELPRE000000000</codigoPrincipal>
+			<descripcion>PELON DE PRETINA</descripcion>
+			<cantidad>3</cantidad>
+			<precioUnitario>1.55</precioUnitario>
+			<descuento>0.46</descuento>
+			<precioTotalSinImpuesto>4.19</precioTotalSinImpuesto>
+			<impuestos>
+				<impuesto>
+					<codigo>2</codigo>
+					<codigoPorcentaje>4</codigoPorcentaje>
+					<tarifa>15</tarifa>
+					<baseImponible>4.19</baseImponible>
+					<valor>0.63</valor>
+				</impuesto>
+			</impuestos>
+		</detalle>
+	</detalles>
+	<infoAdicional>
+		<campoAdicional nombre="Dirección">CIUDADELA BARRA</campoAdicional>
+		<campoAdicional nombre="Email">dayal@hotmail.com</campoAdicional>
+	</infoAdicional>
+</factura>

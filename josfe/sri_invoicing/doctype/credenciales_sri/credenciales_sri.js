@@ -144,29 +144,41 @@ frappe.ui.form.on('Credenciales SRI', {
       }
     });
 
-    // --- PROBAR TRANSMISIÓN ---
+    // --- PROBAR TRANSMISIÓN --- 
     fld.$wrapper.find("#jos_btn_save_transmit").on("click", async () => {
       try {
         freeze(__("Guardando y transmitiendo…"));
         if (!(await ensureSaved())) return;
+
         const { message: m } = await frappe.call({
-          method: "josfe.sri_invoicing.transmission.transmitir_sri.transmitir_xml",
+          method: "josfe.sri_invoicing.transmission.submitters.transmitir_dummy",
           args: { cred_name: frm.doc.name },
         });
+
+        console.log("Dummy transmit response:", m);  // <---- ADD THIS
+
         if (!m) {
           frappe.msgprint(__("Sin respuesta del servidor."));
           return;
         }
-        const estado = m.estado || m.status || __("N/D");
-        const detalles = (m.mensajes || []).join("<br>");
-        frappe.msgprint(__("Estado: {0}<br>{1}", [estado, detalles]));
+
+        if (m.status === "error") {
+          // transport-level failure (no communication with SRI)
+          frappe.msgprint(__("❌ Fallo de comunicación con SRI"));
+        } else {
+          // communication succeeded, show estado + detalles
+          const estado = m.estado || __("N/D");
+          const detalles = (m.mensajes || []).join("<br>");
+          frappe.msgprint(__("✅ Comunicación Exitosa<br>"));
+        }
+
       } catch (e) {
         frappe.msgprint(__("Error transmitiendo a SRI: {0}", [humanizeError(e)]));
       } finally {
         unfreeze();
       }
     });
-  }
+  } 
 
   frappe.ui.form.on(DT, {
     setup(frm) {},

@@ -1,5 +1,5 @@
 from xml.etree.ElementTree import Element, SubElement, tostring
-from xml.dom import minidom
+from lxml import etree
 
 import frappe
 from josfe.sri_invoicing.xml.utils import (
@@ -11,20 +11,19 @@ from josfe.sri_invoicing.xml.utils import (
 )
 
 from josfe.sri_invoicing.validations.access_key import generate_access_key
-
+from josfe.sri_invoicing.xml.utils import format_xml_bytes
 
 
 # -------------------------
 # Pretty-print XML helper
 # -------------------------
 def to_pretty_xml(elem: Element) -> str:
-    """Return a pretty-printed XML string for the Element."""
-    raw = tostring(elem, encoding="utf-8")
-    parsed = minidom.parseString(raw)
-    pretty = parsed.toprettyxml(indent="  ", encoding="utf-8").decode("utf-8")
-    # Remove empty lines minidom injects
-    pretty = "\n".join([line for line in pretty.splitlines() if line.strip()])
-    return pretty
+    """
+    Return XML string with pretty-printing and preserved UTF-8 characters.
+    Uses the shared utils formatter for consistency.
+    """
+    raw = tostring(elem, encoding="utf-8")      # bytes from ElementTree
+    return format_xml_bytes(raw).decode("utf-8")
 
 
 def _resolve_ambiente(si) -> str:

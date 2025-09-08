@@ -11,6 +11,7 @@ import uuid
 from lxml import etree
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
+from josfe.sri_invoicing.xml.utils import format_xml_bytes
 
 DS_NS = "http://www.w3.org/2000/09/xmldsig#"
 XADES_NS = "http://uri.etsi.org/01903/v1.3.2#"
@@ -148,7 +149,9 @@ def inject_signature_template(xml_text: str, cert_pem_path: str) -> str:
     root.append(signature)
 
     # Return pretty-stable bytes
-    return etree.tostring(root, encoding="utf-8", xml_declaration=False).decode("utf-8")
+    return format_xml_bytes(
+        etree.tostring(root, encoding="utf-8", xml_declaration=False)
+    ).decode("utf-8")
 
 
 def sign_with_xmlsec(input_xml: bytes, key_pem_path: str, cert_pem_path: str) -> bytes:

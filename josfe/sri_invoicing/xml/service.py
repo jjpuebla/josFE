@@ -4,6 +4,7 @@
 from __future__ import annotations
 import os, re, tempfile, subprocess
 import frappe
+import html
 from frappe.utils import cstr, now_datetime, escape_html
 
 from josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue import SRIQueueState
@@ -63,8 +64,26 @@ def _move_xml_file(old_url: str, to_state: str, *, origin: str | None = None) ->
 def _write_to_sri(rel_dir: str, filename: str, data: bytes) -> str:
     dest = paths.abs_path(rel_dir, filename)
     os.makedirs(os.path.dirname(dest), exist_ok=True)
+
+    # Normalize before saving, so wrappers (rechazado/no_autorizado/autorizado) are clean too
+    try:
+        data = format_xml_bytes(data or b"")
+    except Exception:
+        pass
+
     with open(dest, "wb") as f:
         f.write(data or b"")
+
+    # 🟢 Human-friendly rewrite for final states (AUTORIZADO/DEVUELTO/RECHAZADO)
+    try:
+        if any(stage in rel_dir.upper() for stage in ["AUTORIZADOS", "DEVUELTOS", "RECHAZADOS"]):
+            text = (data or b"").decode("utf-8", errors="ignore")
+            text = html.unescape(text)
+            with open(dest, "w", encoding="utf-8") as ftxt:
+                ftxt.write(text)
+    except Exception as e:
+        frappe.log_error(f"Unescape final XML failed: {e}", "SRI XML Queue")
+
     return paths.to_file_url(rel_dir, filename)
 
 def _cleanup_after_authorized(filename: str) -> None:
@@ -153,6 +172,10 @@ def _process_signing(qdoc):
     with open(old_path, "r", encoding="utf-8") as f:
         raw_xml = f.read()
     ready_xml = inject_signature_template(raw_xml, cert_pem)
+
+    # # Provoke DEVUELTA
+    # ready_xml = ready_xml.replace("</factura>", "<DEBUGPOINT>after_inject</DEBUGPOINT></factura>")
+
     if ready_xml != raw_xml:
         with open(old_path, "w", encoding="utf-8") as f:
             f.write(ready_xml)

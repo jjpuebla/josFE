@@ -7,6 +7,7 @@ import frappe
 from frappe import _
 from josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue import SRIQueueState
 from josfe.sri_invoicing.xml.builders import build_factura_xml
+from josfe.sri_invoicing.xml.utils import format_xml_string
 
 QUEUE_DTYPE = "SRI XML Queue"
 
@@ -24,8 +25,15 @@ def _ensure_stage_dir(stage_folder: str) -> str:
 def _write_xml_to_stage(filename: str, xml: str, stage_folder: str) -> str:
     """
     Write XML under /private/files/<stage_folder>/<filename>.
-    Return file_url (/private/files/<stage_folder>/<filename>).
+    Normalize encoding/accents before saving.
     """
+    # Normalize the XML consistently
+    try:
+        xml = format_xml_string(xml)
+    except Exception:
+        # If xml is already clean or not parseable here, just write as-is
+        pass
+
     full_dir = _ensure_stage_dir(stage_folder)
     full_path = os.path.join(full_dir, filename)
     with open(full_path, "w", encoding="utf-8") as fh:

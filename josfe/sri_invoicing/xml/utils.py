@@ -279,3 +279,32 @@ def get_info_adicional(si) -> list[dict]:
         # Don't break XML if optional info is missing
         pass
     return out
+
+# --- XML formatting helpers (unify all stages) ---
+from lxml import etree
+
+def format_xml_string(xml_text: str) -> str:
+    """
+    Take an XML string, return a pretty-printed UTF-8 string with real accents (é, ñ, á),
+    avoiding numeric entities like &#xE9;.
+    """
+    root = etree.fromstring(xml_text.encode("utf-8"))
+    return etree.tostring(
+        root,
+        pretty_print=True,
+        encoding="utf-8",
+        xml_declaration=False
+    ).decode("utf-8")
+
+
+def format_xml_bytes(xml_bytes: bytes) -> bytes:
+    """
+    Take XML bytes, return pretty-printed UTF-8 bytes with real accents (é, ñ, á).
+    """
+    root = etree.fromstring(xml_bytes)
+    return etree.tostring(
+        root,
+        pretty_print=True,
+        encoding="utf-8",
+        xml_declaration=False
+    )

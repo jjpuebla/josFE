@@ -119,7 +119,12 @@ doctype_js = {
     "Warehouse": "public/js/sri_invoicing/warehouse_sri_seq.min.js",
     "Sales Invoice": "public/js/sri_invoicing/sales_invoice_series.js",
 }
-#josfe/sri_invoicing/doctype/credenciales_sri/credenciales_sri.js
+
+doctype_list_js = {
+    "Sales Invoice": "public/js/core_dt_lists/sales_invoice_list.js",
+}
+
+
 
 app_include_css = [
     "/assets/josfe/css/sri_seq.css",  

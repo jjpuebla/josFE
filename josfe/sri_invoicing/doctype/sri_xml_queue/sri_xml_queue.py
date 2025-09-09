@@ -6,6 +6,7 @@ import frappe
 from enum import Enum
 from typing import Dict, Set, Optional
 from frappe.model.document import Document
+from josfe.sri_invoicing.xml import paths as xml_paths
 
 class SRIQueueState(str, Enum):
     Generado   = "Generado"     # XML built and stored
@@ -48,17 +49,22 @@ class SRIXMLQueue(Document):
                 self.company = self.company or getattr(si, "company", None)
                 self.customer = self.customer or getattr(si, "customer", None)
             except Exception:
-                pass  # don't hard-fail in tests
-        # ✅ ensure new file starts under SRI/GENERADOS
-        if self.xml_file and not self.xml_file.startswith("/private/files/SRI/GENERADOS/"):
+                # don't hard-fail in tests
+                pass
+
+        # ✅ ensure new file starts under canonical SRI/Generados
+        prefix = f"/private/files/{xml_paths.ROOT_FOLDER_NAME}/{xml_paths.GEN}/"
+        if self.xml_file and not (self.xml_file or "").startswith(prefix):
             from josfe.sri_invoicing.xml.service import _move_xml_file
             try:
                 new_url = _move_xml_file(self.xml_file, "Generado")
                 if new_url:
                     self.xml_file = new_url
             except Exception:
-                frappe.log_error(frappe.get_traceback(), "SRI move GENERADO before_insert")
-
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    "SRI move GENERADO before_insert"
+                )
 
     def validate(self):
         _coerce_state(self.state)

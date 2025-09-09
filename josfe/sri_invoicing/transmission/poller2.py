@@ -6,9 +6,9 @@ from frappe.utils import now_datetime, add_to_date
 
 from josfe.sri_invoicing.transmission import soap
 from josfe.sri_invoicing.xml.helpers import (
-    _append_comment, _attach_private_file, _db_set_state, _format_msgs
+    _append_comment, _db_set_state, _format_msgs
 )
-from josfe.sri_invoicing.xml import paths  # new: route files into SRI/ tree
+from josfe.sri_invoicing.xml import paths
 
 # Backoff schedule in seconds (tweak as you like)
 BACKOFF = [30, 60, 180, 300, 600]  # 30s, 1m, 3m, 5m, 10m
@@ -85,32 +85,38 @@ def poll_autorizacion_job(queue_name: str, clave: str, ambiente: str, attempt: i
     if a_estado == "AUTORIZADO" and (xml_wrapper or autorizado_xml_inner):
         # Prefer wrapper for storage/trace; fall back to inner if missing
         base_name = (doc.xml_file or "comprobante").split("/")[-1].split(".")[0]
-        auth_filename = f"{base_name}.autorizado.xml"
+        auth_filename = f"{base_name}.xml"  # ✅ unified: plain .xml in AUTORIZADOS
         payload = (xml_wrapper or autorizado_xml_inner or "").encode("utf-8")
 
-        # 1) Timeline attachment for audit (keeps your current behavior)
-        attach_url = _attach_private_file(doc, auth_filename, payload)
-        _append_comment(doc, _format_msgs("SRI (Autorización) AUTORIZADO", a_msgs) + f"\nArchivo: `{attach_url}`")
-
-        # 2) Primary working file into SRI/AUTORIZADOS and update doc.xml_file
+        # Single source of truth: save under SRI/AUTORIZADOS
         file_url = _write_to_sri(paths.AUTH, auth_filename, payload)
         try:
             doc.db_set("xml_file", file_url)
         except Exception:
             pass
 
+        # Comment with the canonical SRI path (no extra attachment)
+        _append_comment(
+            doc,
+            _format_msgs("SRI (Autorización) AUTORIZADO", a_msgs) + f"\nArchivo: `{file_url}`"
+        )
+
+        # State + cleanup of stale copies (Generados/Firmados/Pendientes)
         _db_set_state(doc, "Autorizado")
+        try:
+            # lazy import to avoid circular: service imports poller2, so poller2 must not import service at module import time
+            from josfe.sri_invoicing.xml import service as _svc
+            _svc._cleanup_after_authorized(auth_filename)
+        except Exception:
+            pass
         return
 
     if a_estado in {"NO AUTORIZADO", "RECHAZADO", "DEVUELTA"}:
-        # Tag origin explicitly (soap already sets this, but do it again for safety)
         frappe.flags.sri_devuelto_origin = "Autorización"
-
         _append_comment(doc, _format_msgs(f"SRI (Autorización) {a_estado}", a_msgs))
 
-        # Prefer wrapper if available; else move current XML into NO_AUTORIZADOS
         base_name = (doc.xml_file or "comprobante").split("/")[-1].split(".")[0]
-        nat_filename = f"{base_name}.no_autorizado.xml"
+        nat_filename = f"{base_name}.xml"  # ✅ unified: plain .xml in NO_AUTORIZADOS
 
         if xml_wrapper:
             nat_url = _write_to_sri(paths.NOT_AUTH, nat_filename, xml_wrapper.encode("utf-8"))
@@ -127,6 +133,22 @@ def poll_autorizacion_job(queue_name: str, clave: str, ambiente: str, attempt: i
                 pass
 
         _db_set_state(doc, "Devuelto")
+
+        # ✅ Canonical cleanup: remove stale copies (Generados/Firmados/Pendientes)
+        try:
+            # lazy import avoids circular import with service ↔ poller2
+            from josfe.sri_invoicing.xml import service as _svc
+            _svc._cleanup_after_authorized(nat_filename)
+        except Exception:
+            # Fallback: at least remove the PENDIENTES copy
+            try:
+                # make sure `import os` is at the top of this file
+                pend_abs = paths.abs_path(paths.SIGNED_SENT_PENDING, nat_filename)
+                if os.path.exists(pend_abs):
+                    os.remove(pend_abs)
+            except Exception:
+                pass
+
         return
 
     # Still pending (PPR / EN PROCESO / empty)

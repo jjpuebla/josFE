@@ -72,23 +72,11 @@ class SRIXMLQueue(Document):
         from_state = _coerce_state(self.state)
         to_state_e = _coerce_state(to_state)
 
-        # Reenviar: do NOT call Recepción again; repoll Autorización instead
+        # Reenviar: call the same unified sender as Enviar (no alternate path)
         if from_state == SRIQueueState.Enviado and to_state_e == SRIQueueState.Enviado:
             try:
-                from josfe.sri_invoicing.xml import service as _svc
-                # read current xml and extract claveAcceso
-                site_files = frappe.get_site_path("private", "files")
-                rel_old = (self.xml_file or "").replace("/private/files/", "", 1).lstrip("/")
-                with open(os.path.join(site_files, rel_old), "rb") as f:
-                    xml_bytes = f.read()
-                import re as _re
-                m = _re.search(rb"<\s*claveAcceso\s*>\s*([0-9]+)\s*<\s*/\s*claveAcceso\s*>", xml_bytes or b"")
-                clave = (m.group(1).decode().strip() if m else "")
-                if not clave:
-                    frappe.msgprint("⚠ No se pudo extraer claveAcceso para reintentar Autorización.")
-                    return
-                from josfe.sri_invoicing.transmission import poller2
-                poller2.poll_autorizacion_job(queue_name=self.name, clave=clave, ambiente="Pruebas", attempt=0)
+                from josfe.sri_invoicing.xml.service import send_to_sri
+                send_to_sri(self.name, is_retry=1)
             except Exception:
                 frappe.log_error(frappe.get_traceback(), "SRI reenviar error")
             return

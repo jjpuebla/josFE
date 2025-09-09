@@ -9,32 +9,10 @@ from josfe.sri_invoicing.xml.helpers import (
     _append_comment, _db_set_state, _format_msgs
 )
 from josfe.sri_invoicing.xml import paths
+from josfe.sri_invoicing.xml import service as xml_service
 
 # Backoff schedule in seconds (tweak as you like)
 BACKOFF = [30, 60, 180, 300, 600]  # 30s, 1m, 3m, 5m, 10m
-
-# --- tiny local movers to avoid touching other modules ---
-def _write_to_sri(rel_dir: str, filename: str, data: bytes) -> str:
-    dest = paths.abs_path(rel_dir, filename)
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    with open(dest, "wb") as f:
-        f.write(data or b"")
-    rel = os.path.join(paths.ROOT_FOLDER_NAME, rel_dir, filename).replace("\\", "/")
-    return f"/private/files/{rel}"
-
-def _move_xml_to(rel_dir: str, file_url: str) -> str:
-    if not file_url:
-        return ""
-    site_files = frappe.get_site_path("private", "files")
-    old_rel = file_url.replace("/private/files/", "", 1).lstrip("/")
-    old_abs = os.path.join(site_files, old_rel)
-    fname = os.path.basename(old_abs)
-    new_abs = paths.abs_path(rel_dir, fname)
-    if os.path.abspath(old_abs) != os.path.abspath(new_abs) and os.path.exists(old_abs):
-        os.makedirs(os.path.dirname(new_abs), exist_ok=True)
-        os.replace(old_abs, new_abs)
-    rel = os.path.join(paths.ROOT_FOLDER_NAME, rel_dir, fname).replace("\\", "/")
-    return f"/private/files/{rel}"
 
 def _schedule_next(queue_name: str, clave: str, ambiente: str, attempt: int):
     if attempt >= len(BACKOFF):
@@ -89,7 +67,11 @@ def poll_autorizacion_job(queue_name: str, clave: str, ambiente: str, attempt: i
         payload = (xml_wrapper or autorizado_xml_inner or "").encode("utf-8")
 
         # Single source of truth: save under SRI/AUTORIZADOS
-        file_url = _write_to_sri(paths.AUTH, auth_filename, payload)
+        file_url = xml_service._write_to_sri(
+            rel_dir=paths.AUTH,
+            filename=auth_filename,
+            data=payload,
+        )
         try:
             doc.db_set("xml_file", file_url)
         except Exception:
@@ -119,14 +101,18 @@ def poll_autorizacion_job(queue_name: str, clave: str, ambiente: str, attempt: i
         nat_filename = f"{base_name}.xml"  # ✅ unified: plain .xml in NO_AUTORIZADOS
 
         if xml_wrapper:
-            nat_url = _write_to_sri(paths.NOT_AUTH, nat_filename, xml_wrapper.encode("utf-8"))
+            nat_url = xml_service._write_to_sri(
+                rel_dir=paths.NOT_AUTH,
+                filename=nat_filename,
+                data=xml_wrapper.encode("utf-8"),
+            )
             try:
                 doc.db_set("xml_file", nat_url)
             except Exception:
                 pass
         else:
             try:
-                moved = _move_xml_to(paths.NOT_AUTH, doc.xml_file)
+                moved = xml_service._move_xml_file(doc.xml_file, "Devuelto", origin="Autorización")
                 if moved:
                     doc.db_set("xml_file", moved)
             except Exception:
@@ -160,7 +146,8 @@ def poll_autorizacion_job(queue_name: str, clave: str, ambiente: str, attempt: i
 
     # Ensure it stays physically under FIRMADOS/PENDIENTES while we wait
     try:
-        moved = _move_xml_to(paths.SIGNED_SENT_PENDING, doc.xml_file)
+        moved = xml_service._move_xml_file(doc.xml_file, "Enviado")
+
         if moved:
             doc.db_set("xml_file", moved)
     except Exception:

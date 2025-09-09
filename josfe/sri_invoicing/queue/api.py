@@ -2,43 +2,14 @@
 # apps/josfe/josfe/sri_invoicing/queue/api.py
 
 from __future__ import annotations
-import os
 import frappe
 from frappe import _
 from josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue import SRIQueueState
 from josfe.sri_invoicing.xml.builders import build_factura_xml
-from josfe.sri_invoicing.xml.utils import format_xml_string
+from josfe.sri_invoicing.xml import service as xml_service, paths as xml_paths
+
 
 QUEUE_DTYPE = "SRI XML Queue"
-
-# -----------------------------
-# Helpers for file handling
-# -----------------------------
-
-def _ensure_stage_dir(stage_folder: str) -> str:
-    """Ensure /private/files/<stage_folder> exists; return absolute path."""
-    base = frappe.get_site_path("private", "files")
-    full = os.path.join(base, stage_folder)
-    os.makedirs(full, exist_ok=True)
-    return full
-
-def _write_xml_to_stage(filename: str, xml: str, stage_folder: str) -> str:
-    """
-    Write XML under /private/files/<stage_folder>/<filename>.
-    Normalize encoding/accents before saving.
-    """
-    # Normalize the XML consistently
-    try:
-        xml = format_xml_string(xml)
-    except Exception:
-        # If xml is already clean or not parseable here, just write as-is
-        pass
-
-    full_dir = _ensure_stage_dir(stage_folder)
-    full_path = os.path.join(full_dir, filename)
-    with open(full_path, "w", encoding="utf-8") as fh:
-        fh.write(xml)
-    return f"/private/files/{stage_folder}/{filename}"
 
 # -----------------------------
 # Core queue logic
@@ -60,7 +31,11 @@ def build_xml_for_queue(qname: str) -> str:
         sec   = (meta.get("secuencial") or "0").zfill(9)
         filename = f"{estab}-{pto}-{sec}.xml"
 
-        file_url = _write_xml_to_stage(filename, xml, "SRI/GENERADOS")
+        file_url = xml_service._write_to_sri(
+            rel_dir=xml_paths.GEN,
+            filename=filename,
+            data=(xml or "").encode("utf-8"),
+        )
 
         # Store file path directly (no File doc)
         q.db_set("xml_file", file_url)

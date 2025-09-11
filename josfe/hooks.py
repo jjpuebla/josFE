@@ -106,7 +106,10 @@ doc_events = {
 
     },
     "SRI XML Queue": {
-        "on_update": "josfe.sri_invoicing.xml.service.on_queue_update",
+        "on_update": [
+            "josfe.sri_invoicing.xml.service.on_queue_update",
+            "josfe.sri_invoicing.pdf_emailing.handlershooks.on_queue_update",
+        ],
         "autoname": "josfe.sri_invoicing.numbering.xml_autoname.xml_queue_autoname",
     }
 }

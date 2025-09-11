@@ -147,3 +147,20 @@ def get_xml_preview(name: str):
     except Exception:
         frappe.log_error(frappe.get_traceback(), "get_xml_preview error")
         return ""
+
+@frappe.whitelist()
+def get_pdf_url(name: str) -> str:
+    """Return the PDF /private/files URL if it exists, else empty string."""
+    import os
+    from frappe.utils import getdate
+    from josfe.sri_invoicing.xml import paths as xml_paths
+
+    doc = frappe.get_doc("SRI XML Queue", name)
+    if not doc.posting_date:
+        return ""
+
+    d = getdate(doc.posting_date)
+    rel_dir = f"RIDE/{d.month:02d}-{d.year}"
+    fname = f"{doc.name}.pdf"
+    abs_path = xml_paths.abs_path(rel_dir, fname)
+    return xml_paths.to_file_url(rel_dir, fname) if os.path.exists(abs_path) else ""

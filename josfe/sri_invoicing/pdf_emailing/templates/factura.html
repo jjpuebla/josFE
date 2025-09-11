@@ -1,0 +1,248 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    /* --- Page margins for wkhtmltopdf (ERPNext reads .print-format) --- */
+    .print-format {
+      margin-top: 5mm;
+      margin-bottom: 5mm;
+      margin-left: 1mm;
+      margin-right: 1mm;
+    }
+
+    body.print-format {
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      margin: 0;
+    }
+
+    /* --- Generic box with border used for most blocks --- */
+    .box {
+      border: 1px solid #000;
+      border-radius: 8px;
+      padding: 10px 10px 0px 16px;
+      margin-bottom: 6px;
+    }
+
+    /* --- Title style for "FACTURA" --- */
+    .title {
+      font-size: 24px;
+      padding-bottom: 15px;
+      text-align: center;
+    }
+
+    .bold { font-weight: bold; }
+
+    /* --- Layout for header rows --- */
+    table.outer {
+      width: 100%;
+      border-spacing: 10px;
+      table-layout: fixed;
+    }
+    table.outer td.col1 { width: 45%; vertical-align: top; }
+    table.outer td.col2 { width: 55%; vertical-align: top; }
+
+    /* --- Items table --- */
+    table.items {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+      table-layout: fixed;
+    }
+    table.items th, table.items td {
+      border: 1px solid #000;
+      padding: 4px;
+    }
+    table.items th { background-color: #f0f0f0; }
+    table.items tbody tr td { border-bottom: 1px solid #000; }
+
+    /* --- Totals table --- */
+    table.totals {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+      table-layout: fixed;
+    }
+    table.totals td {
+      border: 1px solid #000;
+      padding: 4px;
+    }
+
+    .right { text-align: right; }
+    .box2 {
+      border-bottom: 1px solid #000;
+      padding-bottom: 4px;
+      margin-bottom: 4px;
+    }
+    .small { font-size: 10px; }
+
+    /* --- Field spacing: ensures spacing between fields, but not within wrapped text --- */
+    .field {
+      margin-bottom: 13px;   /* space only between separate fields */
+      line-height: 1.4;     /* normal line height for wrapping inside a field */
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body class="print-format">
+
+<table class="outer">
+  <!-- Row 1 -->
+<tr>
+  <td colspan="2" style="padding:0;">
+    <div style="display:flex; width:100%;">
+
+      <!-- Column 1: Logo + Company Info -->
+      <div style="flex:0 0 45%; display:flex; flex-direction:column; margin-right:10px;">
+        <!-- Logo centered -->
+        <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+          {% if auth.logo_base64 %}
+            <img src="{{ auth.logo_base64 }}" style="max-height:90px;">
+          {% endif %}
+        </div>
+        <!-- Company info bottom -->
+        <div style="display:flex; align-items:flex-end;">
+          <div class="box" style="width:100%;">
+            <div class="field"><b>{{ doc.company or "EMPRESA DEMO" }}</b></div>
+            <div class="field"><b>R.U.C.:</b> {{ auth.ruc or doc.tax_id or "" }}</div>
+            <div class="field"><b>Dirección Matriz:</b> {{ auth.dirMatriz or "" }}</div>
+            <div class="field"><b>Dirección Sucursal:</b> {{ auth.dirEstablecimiento or "" }}</div>
+            <div class="field"><b>Obligado a llevar Contabilidad:</b> {{ auth.obligadoContabilidad or "SI" }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 2: Factura -->
+      <div style="flex:0 0 calc(55% - 10px); display:flex; flex-direction:column; justify-content:stretch;">
+        <div class="box" style="flex:1;">
+          <div class="title"><b>FACTURA</b></div>
+          <div class="title"><b>No.:</b> {{ auth.estab }}-{{ auth.ptoEmi }}-{{ auth.secuencial }}</div><br>
+          <div class="field"><b>CLAVE DE ACCESO:</b></div>
+          {% if auth.barcode %}
+            <img src="{{ auth.barcode }}" style="width:100%; height:100px;"><br>
+          {% endif %}
+          <div class="field"><b>NÚMERO AUTORIZACIÓN:</b> {{ auth.numeroAutorizacion or "" }}</div>
+          <div class="field"><b>AMBIENTE:</b> {{ auth.ambiente or "PRUEBAS" }}</div>
+          <div class="field"><b>EMISIÓN:</b> {{ auth.tipoEmision or "NORMAL" }}</div>
+          <div class="field"><b>FECHA AUTORIZACIÓN:</b> {{ auth.fechaAutorizacion or "" }}</div>
+        </div>
+      </div>
+
+    </div>
+  </td>
+</tr>
+
+
+
+  <!-- Row 3: Customer Info -->
+  <tr>
+    <td colspan="2">
+      <div class="box">
+        <div class="field"><b>Razón Social / Nombres y Apellidos:</b> {{ auth.razonSocialComprador or doc.customer_name }}</div>
+        <div class="field"><b>Identificación:</b> {{ auth.identificacionComprador or doc.customer }}</div>
+        <div class="field"><b>Dirección:</b> {{ auth.direccionComprador or "" }}</div>
+        <div class="field"><b>Fecha Emisión:</b> {{ auth.fechaEmision or doc.posting_date }}</div>
+      </div>
+    </td>
+  </tr>
+
+  <!-- Row 4: Items -->
+  <tr>
+    <td colspan="2">
+      <table class="items">
+        <thead>
+          <tr>
+            <th><b>Código</b></th>
+            <th><b>Descripción</b></th>
+            <th><b>Cantidad</b></th>
+            <th><b>Precio Unitario</b></th>
+            <th><b>Descuento</b></th>
+            <th><b>Precio Total</b></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in doc.items %}
+          <tr>
+            <td>{{ item.item_code }}</td>
+            <td>{{ item.item_name }}</td>
+            <td class="right">{{ item.qty }}</td>
+            <td class="right">{{ item.rate }}</td>
+            <td class="right">{{ item.discount_amount or 0 }}</td>
+            <td class="right">{{ item.amount }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Row 5: Info Adicional + Totals -->
+  <tr>
+    <!-- 5.1.: Info Adicional -->
+    <td valign="top">
+      <div class="box" >
+        <div class="field box2"><b>Información Adicional</b></div>
+        {% if auth.infoAdicional %}
+          {% for campo in auth.infoAdicional %}
+            <div class="field">{{ campo.nombre }}: {{ campo.valor }}</div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </td>
+    <!-- 5.2.: Totals -->
+    <td valign="top" style="text-align:right;">
+      <div style="width:377px; float:right;">
+        <table class="totals box bottom-line" style="width:100%;">
+          <tr><td class="right" style="width:200px; float:right;"><b>SUBTOTAL SIN IMPUESTOS</b></td><td class="right">{{ auth.totalSinImpuestos or doc.net_total }}</td></tr>
+          <tr><td class="right"><b>DESCUENTO</b></td><td class="right">{{ auth.totalDescuento or doc.discount_amount or 0 }}</td></tr>
+          {% if auth.totalConImpuestos %}
+            {% for imp in auth.totalConImpuestos %}
+            <tr><td class="right"><b>IVA {{ imp.codigoPorcentaje or "" }}</b></td><td class="right">{{ imp.valor }}</td></tr>
+            {% endfor %}
+          {% endif %}
+          <tr><td class="right bold">VALOR TOTAL</td><td class="right bold">{{ auth.importeTotal or doc.grand_total }}</td></tr>
+        </table>
+      </div>
+    </td>
+  </tr>
+
+  <!-- Row 6: Forma de Pago -->
+  <tr>
+    <td>
+      <div class="box"  style="padding-bottom: 15px;">
+        <div class="field box2"><b>Forma de Pago</b></div>
+        {% if auth.pagos %}
+          <table style="width:100%; border-collapse: collapse; font-size: 12px;">
+            <tr><th style="padding-bottom: 15px;"">Forma Pago</th><th style="padding-bottom: 10px;"">Total</th></tr>
+            {% for pago in auth.pagos %}
+            <tr>
+              <div>
+              <td>{{ pago.descripcion or pago.formaPago }}</td>
+              <td style="text-align:center;">{{ pago.total }}</td>
+                </div>
+            </tr>
+            {% endfor %}
+          </table>
+        {% endif %}
+      </div>
+    </td>
+  </tr>
+</table>
+
+<!-- Footer with QR -->
+<table width="100%" style="table-layout:fixed;">
+  <tr>
+    <td style="width:50%;">
+      {% if auth.qr %}
+        <img src="{{ auth.qr }}" width="120" height="120">
+      {% endif %}
+    </td>
+    <td style="width:50%; text-align:right;">
+      <b>Documento electrónico autorizado por el SRI</b><br>
+      Consulte en: <br> www.sri.gob.ec
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

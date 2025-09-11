@@ -3,6 +3,7 @@
 frappe.ui.form.on("SRI XML Queue", {
   async refresh(frm) {
     frappe.after_ajax(async () => {
+      // --- Existing XML file preview/download code (unchanged) ---
       frm.fields_dict.xml_file.$wrapper.empty();
 
       if (frm.doc.xml_file) {
@@ -13,9 +14,10 @@ frappe.ui.form.on("SRI XML Queue", {
             📄 ${fname}
           </a>
           &nbsp;&nbsp;
-          <button class="btn btn-dark btn-sm xml-download-btn" data-name="${frm.doc.name}">
+          <button class="btn btn-dark btn-sm xml-download-btn" data-name="${frm.doc.name}" style="margin-bottom:20px;">
             ⬇ Download
           </button>
+          <span class="pdf-slot"></span>
         `);
 
         // Remove old handlers before binding new ones
@@ -63,6 +65,72 @@ frappe.ui.form.on("SRI XML Queue", {
             window.URL.revokeObjectURL(url);
           }
         });
+
+        // --- PDF Preview/Download (server-driven; no path guessing in JS) ---
+        try {
+          const pdfResp = await frappe.call({
+            method: "josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue.get_pdf_url",
+            args: { name: frm.doc.name },
+          });
+          const pdfUrl = pdfResp && pdfResp.message;
+          if (pdfUrl) {
+            const pdfName = (frm.doc.name || "document") + ".pdf";
+            frm.fields_dict.xml_file.$wrapper.find(".pdf-slot").html(`
+              <br>
+              <a href="${pdfUrl}" target="_blank" class="pdf-preview-link">
+                📄 ${pdfName}
+              </a>
+              &nbsp;&nbsp;
+              <a class="btn btn-dark btn-sm" href="${pdfUrl}" download>
+                ⬇ Download PDF
+              </a>
+            `);
+          }
+        } catch (e) {
+          console.warn("PDF URL check failed:", e);
+        }
+      }
+
+      // --- State = Autorizado: show extra fields + always show 'Resend Email' button ---
+      const isAutorizado = ((frm.doc.state || "") + "").toLowerCase() === "autorizado";
+
+      if (isAutorizado) {
+        // Unhide pdf_emailed + email_retry_count fields (mark them Read Only in Customize Form)
+        if (frm.fields_dict.pdf_emailed) {
+          frm.set_df_property("pdf_emailed", "hidden", 0);
+        }
+        if (frm.fields_dict.email_retry_count) {
+          frm.set_df_property("email_retry_count", "hidden", 0);
+        }
+
+        // Always offer manual resend while Autorizado
+        frm.add_custom_button(
+          __("Resend Email"),
+          function () {
+            frappe.call({
+              method: "josfe.sri_invoicing.pdf_emailing.handlers.manual_resend",
+              args: { queue_name: frm.doc.name },
+              callback: function (r) {
+                if (!r.exc) {
+                  frappe.msgprint("📧 Email resend triggered.");
+                  frm.reload_doc(); // refresh form after resend
+                }
+              },
+            }).catch((e) => {
+              frappe.msgprint(__("Resend handler is not available."));
+              console.warn(e);
+            });
+          },
+          __("Actions")
+        );
+      } else {
+        // Hide fields when not Autorizado
+        if (frm.fields_dict.pdf_emailed) {
+          frm.set_df_property("pdf_emailed", "hidden", 1);
+        }
+        if (frm.fields_dict.email_retry_count) {
+          frm.set_df_property("email_retry_count", "hidden", 1);
+        }
       }
     });
   },

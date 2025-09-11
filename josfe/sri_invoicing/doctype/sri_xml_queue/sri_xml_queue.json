@@ -1,7 +1,7 @@
 {
  "actions": [],
  "autoname": "naming_series:",
- "creation": "2025-09-02 21:12:35.178945",
+ "creation": "2025-09-07 01:31:07.808257",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -11,12 +11,17 @@
   "company",
   "custom_jos_level3_warehouse",
   "customer",
+  "section_break_kbbk",
+  "column_break_kihv",
   "state",
   "xml_file",
   "sri_authorization",
   "last_error",
   "last_transition_at",
-  "last_transition_by"
+  "last_transition_by",
+  "column_break_enuc",
+  "pdf_emailed",
+  "email_retry_count"
  ],
  "fields": [
   {
@@ -111,10 +116,35 @@
    "in_list_view": 1,
    "label": "Fecha",
    "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "pdf_emailed",
+   "fieldtype": "Check",
+   "label": "PDF Enviado? ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_kihv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "email_retry_count",
+   "fieldtype": "Int",
+   "label": "Re-env\u00edos",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_kbbk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_enuc",
+   "fieldtype": "Column Break"
   }
  ],
  "links": [],
- "modified": "2025-09-02 21:17:45.574259",
+ "modified": "2025-09-10 15:34:25.967959",
  "modified_by": "Administrator",
  "module": "sri_invoicing",
  "name": "SRI XML Queue",

@@ -164,3 +164,22 @@ def get_pdf_url(name: str) -> str:
     fname = f"{doc.name}.pdf"
     abs_path = xml_paths.abs_path(rel_dir, fname)
     return xml_paths.to_file_url(rel_dir, fname) if os.path.exists(abs_path) else ""
+
+@frappe.whitelist()
+def get_pdf_content(name: str) -> str:
+    """Return raw PDF content (base64) for client download."""
+    doc = frappe.get_doc("SRI XML Queue", name)
+    from josfe.sri_invoicing.pdf_emailing.pdf_builder import build_invoice_pdf
+    pdf_url = build_invoice_pdf(doc)
+
+    # Resolve file path
+    abs_path = frappe.get_site_path("private", "files", pdf_url.replace("/private/files/", ""))
+    if not os.path.exists(abs_path):
+        frappe.throw("PDF file not found")
+
+    with open(abs_path, "rb") as f:
+        data = f.read()
+
+    # Return base64 to JS
+    import base64
+    return base64.b64encode(data).decode("utf-8")

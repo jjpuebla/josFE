@@ -5,12 +5,13 @@ from josfe.sri_invoicing.pdf_emailing.emailer import send_invoice_email
 
 def on_queue_update(doc, event):
     """Triggered when SRI XML Queue is updated"""
-    if doc.estado == "AUTORIZADO" and not doc.get("pdf_emailed"):
+    if doc.state == "AUTORIZADO" and not doc.get("pdf_emailed"):
         try:
-            _process_email(doc.name)
+            from josfe.sri_invoicing.pdf_emailing.pdf_builder import build_invoice_pdf
+            build_invoice_pdf(doc)  # generate PDF only
+            # don’t call _process_email here in dev
         except Exception:
-            frappe.log_error(frappe.get_traceback(), "Initial PDF/Email Failed")
-            schedule_retry(doc)
+            frappe.log_error(frappe.get_traceback(), "Initial PDF build failed")
 
 def _process_email(queue_name):
     """Main logic to build PDF and send email"""

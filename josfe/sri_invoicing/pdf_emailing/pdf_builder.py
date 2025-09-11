@@ -210,7 +210,7 @@ def build_invoice_pdf(qdoc) -> str:
     # Save PDF under RIDE/mm-YYYY
     d = getdate(inv.posting_date)
     rel_dir = f"RIDE/{d.month:02d}-{d.year}"
-    fname = f"{qdoc.name}.pdf"
+    fname = f"{inv.name}.pdf"
     abs_path = xml_paths.abs_path(rel_dir, fname)
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
 

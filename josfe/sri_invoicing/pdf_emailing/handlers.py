@@ -5,7 +5,7 @@ from josfe.sri_invoicing.pdf_emailing.emailer import send_invoice_email
 
 def on_queue_update(doc, event):
     """Triggered when SRI XML Queue is updated"""
-    if doc.state == "AUTORIZADO" and not doc.get("pdf_emailed"):
+    if (doc.state or "").lower() == "autorizado" and not doc.get("pdf_emailed"):
         try:
             from josfe.sri_invoicing.pdf_emailing.pdf_builder import build_invoice_pdf
             build_invoice_pdf(doc)  # generate PDF only

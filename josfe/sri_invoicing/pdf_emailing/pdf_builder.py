@@ -12,6 +12,7 @@ from josfe.sri_invoicing.xml import paths as xml_paths
 
 import qrcode
 import barcode
+import shutil, uuid
 from barcode.writer import ImageWriter
 
 
@@ -187,18 +188,32 @@ def build_invoice_pdf(qdoc) -> str:
         abs_xml_path = frappe.get_site_path("private", "files", xml_url.replace("/private/files/", ""))
         auth_fields = _parse_autorizado_xml(abs_xml_path)
 
-    # Add company logo absolute path
+    # --- Company Logo Handling ---
+    logo_base64 = ""
     logo_url = frappe.db.get_value("Company", inv.company, "company_logo")
-    logo_abs = ""
+
     if logo_url:
         try:
-            file_doc = frappe.get_doc("File", {"file_url": logo_url})
-            raw_path = file_doc.get_full_path()
-            logo_abs = os.path.abspath(raw_path)   # ensure absolute
-        except Exception:
-            frappe.log_error(frappe.get_traceback(), "Error resolving company logo path")
+            # Turn File URL into absolute path
+            if logo_url.startswith("/private/files/"):
+                abs_path = frappe.get_site_path("private", "files", logo_url.replace("/private/files/", ""))
+            elif logo_url.startswith("/files/"):
+                abs_path = frappe.get_site_path("public", "files", logo_url.replace("/files/", ""))
+            else:
+                abs_path = ""
 
-    auth_fields["logo_base64"] = _file_to_base64(logo_abs)
+            # Embed as base64 if file exists
+            if abs_path and os.path.exists(abs_path):
+                with open(abs_path, "rb") as f:
+                    encoded = base64.b64encode(f.read()).decode("utf-8")
+                logo_base64 = f"data:image/png;base64,{encoded}"
+            else:
+                frappe.log_error(f"Logo not found at {abs_path}", "PDF Logo Missing")
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "Error embedding company logo")
+
+    auth_fields["logo_base64"] = logo_base64
+
 
     # Render template
     html = frappe.render_template(

@@ -148,38 +148,65 @@ def get_xml_preview(name: str):
         frappe.log_error(frappe.get_traceback(), "get_xml_preview error")
         return ""
 
+# @frappe.whitelist()
+# def get_pdf_url(name: str) -> str:
+#     """Return the PDF /private/files URL if it exists; build it if missing."""
+#     import os
+#     from frappe.utils import getdate
+#     from josfe.sri_invoicing.xml import paths as xml_paths
+#     from josfe.sri_invoicing.pdf_emailing.pdf_builder import build_invoice_pdf
+
+#     doc = frappe.get_doc("SRI XML Queue", name)
+
+#     # Resolve linked Sales Invoice exactly like pdf_builder does
+#     inv = None
+#     if doc.get("sales_invoice"):
+#         inv = frappe.get_doc("Sales Invoice", doc.sales_invoice)
+#     elif doc.get("reference_doctype") == "Sales Invoice" and doc.get("reference_name"):
+#         inv = frappe.get_doc("Sales Invoice", doc.reference_name)
+#     else:
+#         return ""
+
+#     # Build path: use invoice.posting_date and invoice.name
+#     d = getdate(inv.posting_date)
+#     rel_dir = f"RIDE/{d.month:02d}-{d.year}"
+#     fname = f"{inv.name}.pdf"
+#     abs_path = xml_paths.abs_path(rel_dir, fname)
+#     url = xml_paths.to_file_url(rel_dir, fname)
+
+#     # If missing, build the PDF now
+#     if not os.path.exists(abs_path):
+#         try:
+#             url = build_invoice_pdf(doc)
+#         except Exception:
+#             frappe.log_error(frappe.get_traceback(), "get_pdf_url build failed")
+#             return ""
+
+#     return url
+
 @frappe.whitelist()
-def get_pdf_url(name: str) -> str:
-    """Return the PDF /private/files URL if it exists, else empty string."""
-    import os
-    from frappe.utils import getdate
-    from josfe.sri_invoicing.xml import paths as xml_paths
-
-    doc = frappe.get_doc("SRI XML Queue", name)
-    if not doc.posting_date:
-        return ""
-
-    d = getdate(doc.posting_date)
-    rel_dir = f"RIDE/{d.month:02d}-{d.year}"
-    fname = f"{doc.name}.pdf"
-    abs_path = xml_paths.abs_path(rel_dir, fname)
-    return xml_paths.to_file_url(rel_dir, fname) if os.path.exists(abs_path) else ""
-
-@frappe.whitelist()
-def get_pdf_content(name: str) -> str:
-    """Return raw PDF content (base64) for client download."""
-    doc = frappe.get_doc("SRI XML Queue", name)
+def download_pdf(name: str) -> dict:
+    """
+    Ensure the PDF exists, then return it as base64 along with the correct filename.
+    This avoids hitting /private/files from the browser (auth issues).
+    """
+    import os, base64
     from josfe.sri_invoicing.pdf_emailing.pdf_builder import build_invoice_pdf
-    pdf_url = build_invoice_pdf(doc)
 
-    # Resolve file path
+    qdoc = frappe.get_doc("SRI XML Queue", name)
+
+    # Build (or rebuild) to guarantee the file exists; returns /private/files/... URL
+    pdf_url = build_invoice_pdf(qdoc)
+
+    # Convert URL -> absolute path
     abs_path = frappe.get_site_path("private", "files", pdf_url.replace("/private/files/", ""))
     if not os.path.exists(abs_path):
-        frappe.throw("PDF file not found")
+        frappe.throw(f"PDF file not found: {abs_path}")
 
     with open(abs_path, "rb") as f:
-        data = f.read()
+        data_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-    # Return base64 to JS
-    import base64
-    return base64.b64encode(data).decode("utf-8")
+    return {
+        "data": data_b64,
+        "filename": os.path.basename(abs_path),  # e.g. 002-002-000000266.pdf
+    }

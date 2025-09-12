@@ -48,9 +48,19 @@ def send_invoice_email(qdoc, pdf_url: Optional[str] = None) -> None:
             frappe.log_error(frappe.get_traceback(), "PDF build failed")
             pdf_url = None
 
-    # Collect attachments (dicts for sendmail)
+    # Collect attachments (dicts with fname + fcontent)
+    attachments = []
     urls = _collect_existing_urls([qdoc.get("xml_file"), pdf_url])
-    attachments = [{"file_url": u} for u in urls]
+    for u in urls:
+        abs_path = _url_to_abs_private_path(u)
+        if abs_path and os.path.exists(abs_path):
+            with open(abs_path, "rb") as f:
+                attachments.append({
+                    "fname": os.path.basename(abs_path),
+                    "fcontent": f.read(),
+                })
+        else:
+            frappe.log_error(f"Attachment missing on disk: {u}", "Email Attachment Error")
 
     # Compose subject/body
     subject = _format_subject(inv)
@@ -62,6 +72,7 @@ def send_invoice_email(qdoc, pdf_url: Optional[str] = None) -> None:
         subject=subject,
         message=message,
         attachments=attachments,
+        delayed=False,
     )
 
 

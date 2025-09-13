@@ -1,5 +1,6 @@
 from xml.etree.ElementTree import Element, SubElement, tostring
 from lxml import etree
+from decimal import Decimal, ROUND_UP, ROUND_CEILING, ROUND_HALF_UP
 
 import frappe
 from josfe.sri_invoicing.xml.utils import (
@@ -102,6 +103,15 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
     )
 
     # -------------------------
+    # calculate totals (first pass)
+    # -------------------------
+    total_desc = D("0.00")
+    for it in si.items:
+        precio_unitario = (D(it.net_amount or 0) / D(it.qty or 1)).quantize(D("0.01"), rounding=ROUND_UP)
+        descuento = (precio_unitario * D(it.qty or 0)) - D(it.net_amount or 0)
+        total_desc += descuento
+
+    # -------------------------
     # infoFactura
     # -------------------------
     infoFac = SubElement(factura, "infoFactura")
@@ -122,18 +132,18 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
 
     # Totals
     total_sin_imp = money(D(getattr(si, "net_total", getattr(si, "total", 0))))
-    total_desc = money(D(getattr(si, "discount_amount", 0)))
     importe_total = money(D(getattr(si, "grand_total", 0)))
     _text(infoFac, "totalSinImpuestos", total_sin_imp)
     _text(infoFac, "totalDescuento", total_desc)
 
     # totalConImpuestos (invoice-level)
     totalConImp = SubElement(infoFac, "totalConImpuestos")
-    ti = SubElement(totalConImp, "totalImpuesto")
-    inv_tax_map = map_tax_invoice(si)  # IVA 15% aggregate
-    for k, v in inv_tax_map.items():
-        _text(ti, k, v)
-
+    for tmap in map_tax_invoice(si):
+        ti = SubElement(totalConImp, "totalImpuesto")
+        _text(ti, "codigo", tmap["codigo"])
+        _text(ti, "codigoPorcentaje", tmap["codigoPorcentaje"])
+        _text(ti, "baseImponible", tmap["baseImponible"])
+        _text(ti, "valor", tmap["valor"])
     _text(infoFac, "propina", "0.00")
     _text(infoFac, "importeTotal", importe_total)
     _text(infoFac, "moneda", company.default_currency or "USD")
@@ -161,16 +171,24 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
             _text(d, "unidadMedida", it.stock_uom)
             
         _text(d, "cantidad", qty6(it.qty))
-        _text(d, "precioUnitario", qty6(it.rate))
-        _text(d, "descuento", money(D(getattr(it, "discount_amount", 0))))
-        _text(d, "precioTotalSinImpuesto", money(D(getattr(it, "net_amount", getattr(it, "amount", 0)))))
+        precio_unitario = (D(it.net_amount or 0) / D(it.qty or 1)).quantize(D("0.01"), rounding=ROUND_UP)
+        _text(d, "precioUnitario", money(precio_unitario))
+        # descuento = adjustment for rounding differences
+        descuento = (precio_unitario * D(it.qty or 0)) - D(it.net_amount or 0)
+        _text(d, "descuento", money(descuento))
+        _text(d, "precioTotalSinImpuesto", money(it.net_amount))
 
         imp = SubElement(d, "impuestos")
-        i = SubElement(imp, "impuesto")
-        tmap = map_tax_item(it)  # IVA 15% at item level
-        for k, v in tmap.items():
-            _text(i, k, v)
-
+        # Render all applicable taxes for this item (IVA/ICE/IRBPNR, mixed rates)
+        for tmap in map_tax_item(si, it):
+            i = SubElement(imp, "impuesto")
+            _text(i, "codigo", tmap["codigo"])
+            _text(i, "codigoPorcentaje", tmap["codigoPorcentaje"])
+            # <tarifa> is expected at item level for IVA; optional for other taxes
+            if tmap.get("tarifa") is not None:
+                _text(i, "tarifa", tmap["tarifa"])
+            _text(i, "baseImponible", tmap["baseImponible"])
+            _text(i, "valor", tmap["valor"])
     # -------------------------
     # infoAdicional
     # -------------------------
@@ -180,6 +198,13 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
         for campo in adicionales:
             ca = SubElement(infoAd, "campoAdicional", {"nombre": campo["nombre"][:300]})
             ca.text = str(campo["valor"])[:300]
+
+    # --- Validation: ensure taxes reconcile ---
+    xml_val = sum(D(imp["valor"]) for it in si.items for imp in map_tax_item(si, it))
+    if abs(xml_val - D(si.total_taxes_and_charges or 0)) > D("0.01"):
+        frappe.throw(f"El XML no cuadra impuestos (ERP={si.total_taxes_and_charges}, XML={xml_val})")
+
+
 
     # -------------------------
     # Output

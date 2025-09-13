@@ -226,36 +226,182 @@ def get_forma_pago(si) -> list[dict]:
 # Taxes (IVA 15% baseline)
 # ------------------------------
 
-def map_tax_invoice(si) -> dict:
-    """
-    Build the invoice-level <totalImpuesto> for IVA 15%.
-    At this level, SRI XSD does NOT expect <tarifa>, only:
-    codigo, codigoPorcentaje, descuentoAdicional?, baseImponible, valor
-    """
-    base = D(getattr(si, "net_total", 0))
-    total = D(getattr(si, "grand_total", 0))
-    iva_val = total - base
-    return {
-        "codigo": "2",               # IVA
-        "codigoPorcentaje": "4",     # 15%
-        # "tarifa": "15.00",
-        "baseImponible": money(base),
-        "valor": money(iva_val),
-    }
+# Taxes — dynamic per item (IVA/ICE/IRBPNR)
+# -----------------------------------------
 
-def map_tax_item(it) -> dict:
+def _round_pct(p):
+    try:
+        return int(Decimal(str(p)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    except Exception:
+        return 0
+
+def _sri_codes_for_tax_row(tax_row, pct: D):
     """
-    Build the item-level <impuesto> for IVA 15%.
-    Uses item.net_amount as you printed in bench console.
+    Map ERP tax row + percentage into SRI (codigo, codigoPorcentaje, tarifa).
+    pct = percentage (Decimal).
     """
-    base = D(getattr(it, "net_amount", getattr(it, "amount", 0)))
-    return {
-        "codigo": "2",
-        "codigoPorcentaje": "4",
-        "tarifa": "15.00",
-        "baseImponible": money(base),
-        "valor": money(base * D("0.15")),
-    }
+    head = (getattr(tax_row, "account_head", "") or "").upper()
+    desc = (getattr(tax_row, "description", "") or "").upper()
+    pct_i = int(round(float(pct)))
+
+    # IVA (codigo "2")
+    if "IVA" in head or "IVA" in desc:
+        # Detect Exento / No Objeto
+        if "EXENTO" in desc or "EXENTO" in head:
+            return "2", "7", "0.00"
+        if "NO OBJETO" in desc or "NO OBJETO" in head:
+            return "2", "6", "0.00"
+
+        # Standard by percentage
+        if pct_i == 0:
+            return "2", "0", "0.00"
+        if pct_i == 5:
+            return "2", "5", "5.00"
+        if pct_i == 8:
+            return "2", "8", "8.00"
+        if pct_i == 12:
+            return "2", "2", "12.00"
+        if pct_i == 13:
+            return "2", "10", "13.00"
+        if pct_i == 14:
+            return "2", "3", "14.00"
+        if pct_i == 15:
+            return "2", "4", "15.00"
+
+        # Fallback → treat as 0%
+        return "2", "0", "0.00"
+
+    # ICE (codigo "3")
+    if "ICE" in head or "ICE" in desc:
+        # SRI expects sub-codes depending on tariff; assume generic
+        return "3", "0", f"{pct:.2f}"
+
+    # IRBPNR (codigo "5")
+    if "IRBPNR" in head or "IRBPNR" in desc:
+        return "5", "0", f"{pct:.2f}"
+
+    # Default → IVA 0%
+    return "2", "0", "0.00"
+
+
+def _iter_item_tax_splits(si, item):
+    """
+    Read ERPNext Sales Taxes & Charges per-item split:
+      tax.item_wise_tax_detail[item_code] -> [amount, rate]
+    """
+    out = []
+    for tax in (si.taxes or []):
+        details = getattr(tax, "item_wise_tax_detail", None)
+        if not details:
+            continue
+        try:
+            d = frappe.parse_json(details) or {}
+        except Exception:
+            d = {}
+        key = item.item_code or item.item_name or item.name
+        val = d.get(key) or d.get(item.name)
+        if val is None:
+            continue
+        tax_rate   = D(val[0]) if isinstance(val, (list, tuple)) and len(val) >= 1 else D(getattr(tax, "rate", 0) or 0)
+        tax_amount = D(val[1]) if isinstance(val, (list, tuple)) and len(val) >= 2 else D("0")
+
+        out.append({"row": tax, "rate": tax_rate, "amount": tax_amount})
+    return out
+
+
+def map_tax_invoice(si) -> list[dict]:
+    """
+    Aggregate invoice totals per (codigo, codigoPorcentaje).
+    Output: list of totalImpuesto dicts (SRI doesn't require <tarifa> at invoice level).
+    """
+    from collections import defaultdict
+    buckets = defaultdict(lambda: D("0"))
+    bases   = defaultdict(lambda: D("0"))
+
+    for it in (si.items or []):
+        base = D(getattr(it, "net_amount", getattr(it, "amount", 0)) or 0)
+        for split in _iter_item_tax_splits(si, it):
+            codigo, codigoPorcentaje, _ = _sri_codes_for_tax_row(split["row"], split["rate"])
+            key = (codigo, codigoPorcentaje)
+            buckets[key] += D(split["amount"] or 0)
+            bases[key]   += base
+
+    if not buckets:
+        return [{
+            "codigo": "2",
+            "codigoPorcentaje": "0",
+            "baseImponible": money(D(getattr(si, "net_total", 0) or 0)),
+            "valor": money(D("0")),
+        }]
+
+    out = []
+    for (codigo, codigoPorcentaje), val in buckets.items():
+        out.append({
+            "codigo": codigo,
+            "codigoPorcentaje": codigoPorcentaje,
+            "baseImponible": money(bases[(codigo, codigoPorcentaje)]),
+            "valor": money(val),
+        })
+    return out
+
+
+def map_tax_item(si, it) -> list[dict]:
+    """
+    Build list of <impuesto> dicts for a Sales Invoice item.
+    Uses ERPNext's item_wise_tax_detail directly.
+    - <tarifa>  = percentage (val[0])
+    - <valor>   = monetary amount (val[1])
+    - <baseImponible> = it.net_amount
+    """
+    base = D(it.net_amount or it.amount or 0)
+    impuestos = []
+
+    # Walk ERP tax splits for this item
+    for split in _iter_item_tax_splits(si, it):
+        row = split["row"]
+
+        # Reparse to be safe → ERP stores [rate, amount]
+        raw = frappe.parse_json(row.item_wise_tax_detail or "{}") or {}
+        val = raw.get(it.item_code) or raw.get(it.name) or raw.get(it.item_name)
+
+        if not (isinstance(val, (list, tuple)) and len(val) >= 2):
+            continue
+
+        rate_pct = D(val[0])    # % (e.g. 15.0)
+        amount_val = D(val[1])  # money (e.g. 65217.39)
+
+        codigo, codigoPorcentaje, _ = _sri_codes_for_tax_row(row, rate_pct)
+
+        impuestos.append({
+            "codigo": codigo,
+            "codigoPorcentaje": codigoPorcentaje,
+            "tarifa": f"{rate_pct:.2f}",        # percentage
+            "baseImponible": money(base),
+            "valor": money(amount_val),         # money
+        })
+
+    # If ERP gave no tax splits → fallback to 0%/Exento/No Objeto
+    if not impuestos:
+        porc_code = "0"  # default 0%
+        for tax in (si.taxes or []):
+            desc = (tax.description or "").upper()
+            acc  = (tax.account_head or "").upper()
+            if "EXENTO" in desc or "EXENTO" in acc:
+                porc_code = "7"
+                break
+            if "NO OBJETO" in desc or "NO OBJETO" in acc:
+                porc_code = "6"
+                break
+        impuestos.append({
+            "codigo": "2",
+            "codigoPorcentaje": porc_code,
+            "tarifa": "0.00",
+            "baseImponible": money(base),
+            "valor": money(D("0")),
+        })
+
+    return impuestos
+
 
 # ------------------------------
 # Info Adicional

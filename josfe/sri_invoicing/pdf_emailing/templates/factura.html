@@ -160,18 +160,18 @@
             <th><b>Precio Total</b></th>
           </tr>
         </thead>
-        <tbody>
-          {% for item in doc.items %}
-          <tr>
-            <td>{{ item.item_code }}</td>
-            <td>{{ item.item_name }}</td>
-            <td class="right">{{ item.qty }}</td>
-            <td class="right">{{ item.rate }}</td>
-            <td class="right">{{ item.discount_amount or 0 }}</td>
-            <td class="right">{{ item.amount }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
+          <tbody>
+            {% for it in auth["items"] %}
+              <tr>
+                <td>{{ it.codigoPrincipal or "" }}</td>
+                <td>{{ it.descripcion or "" }}</td>
+                <td class="right">{{ it.cantidad or "" }}</td>
+                <td class="right">{{ it.precioUnitario or "" }}</td>
+                <td class="right">{{ it.descuento or "" }}</td>
+                <td class="right">{{ it.precioTotalSinImpuesto or "" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
       </table>
     </td>
   </tr>
@@ -193,14 +193,54 @@
     <td valign="top" style="text-align:right;">
       <div style="width:377px; float:right;">
         <table class="totals box bottom-line" style="width:100%;">
-          <tr><td class="right" style="width:200px; float:right;"><b>SUBTOTAL SIN IMPUESTOS</b></td><td class="right">{{ auth.totalSinImpuestos or doc.net_total }}</td></tr>
-          <tr><td class="right"><b>DESCUENTO</b></td><td class="right">{{ auth.totalDescuento or doc.discount_amount or 0 }}</td></tr>
-          {% if auth.totalConImpuestos %}
-            {% for imp in auth.totalConImpuestos %}
-            <tr><td class="right"><b>IVA {{ imp.codigoPorcentaje or "" }}</b></td><td class="right">{{ imp.valor }}</td></tr>
+          
+          <!-- Subtotal -->
+          <tr>
+            <td class="right" style="width:200px;"><b>SUBTOTAL SIN IMPUESTOS</b></td>
+            <td class="right">{{ auth.totalSinImpuestos or doc.net_total }}</td>
+          </tr>
+
+          <!-- Discount -->
+          <tr>
+            <td class="right"><b>DESCUENTO</b></td>
+            <td class="right">{{ auth.totalDescuento or doc.discount_amount or 0 }}</td>
+          </tr>
+
+          <!-- Taxes -->
+          {% if auth["totalConImpuestos"] and auth["totalConImpuestos"]|length > 0 %}
+            {% for t in auth["totalConImpuestos"] %}
+            <tr>
+              <td class="right">
+                <b>
+                {% if t.codigo == "2" %}
+                  {% if t.codigoPorcentaje == "0" %} IVA 0%
+                  {% elif t.codigoPorcentaje == "2" %} IVA 12%
+                  {% elif t.codigoPorcentaje == "3" %} IVA 14%
+                  {% elif t.codigoPorcentaje == "4" %} IVA 15%
+                  {% else %} IVA {{ t.codigoPorcentaje }}%
+                  {% endif %}
+                {% elif t.codigo == "3" %} ICE {{ t.codigoPorcentaje }}%
+                {% elif t.codigo == "5" %} IRBPNR
+                {% else %} Impuesto {{ t.codigo }}/{{ t.codigoPorcentaje }}
+                {% endif %}
+                </b>
+              </td>
+              <td class="right">{{ t.valor }}</td>
+            </tr>
             {% endfor %}
           {% endif %}
-          <tr><td class="right bold">VALOR TOTAL</td><td class="right bold">{{ auth.importeTotal or doc.grand_total }}</td></tr>
+
+          <!-- Propina -->
+          <tr>
+            <td class="right"><b>PROPINA</b></td>
+            <td class="right">{{ auth.propina or "0.00" }}</td>
+          </tr>
+
+          <!-- Grand Total -->
+          <tr>
+            <td class="right bold">VALOR TOTAL</td>
+            <td class="right bold">{{ auth.importeTotal or doc.grand_total }}</td>
+          </tr>
         </table>
       </div>
     </td>

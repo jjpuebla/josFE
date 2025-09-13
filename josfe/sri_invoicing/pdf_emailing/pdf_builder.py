@@ -112,7 +112,7 @@ def _parse_autorizado_xml(abs_xml_path: str) -> dict:
 
             # Totals (list of impuestos)
             auth["totalConImpuestos"] = []
-            for imp in inner_root.findall(".//totalConImpuesto"):
+            for imp in inner_root.findall(".//totalImpuesto"):
                 entry = {}
                 for subtag in ("codigo", "codigoPorcentaje", "baseImponible", "valor"):
                     el = imp.find(subtag)
@@ -153,6 +153,31 @@ def _parse_autorizado_xml(abs_xml_path: str) -> dict:
                 entry["valor"] = campo.text.strip() if campo.text else ""
                 if entry:
                     auth["infoAdicional"].append(entry)
+
+            # ✅ INSERT HERE: Items (detalles)
+            auth["items"] = []
+            for det in inner_root.findall(".//detalle"):
+                item = {}
+                for tag in ("codigoPrincipal", "descripcion", "cantidad",
+                            "precioUnitario", "descuento", "precioTotalSinImpuesto"):
+                    el = det.find(tag)
+                    if el is not None and el.text:
+                        item[tag] = el.text.strip()
+
+                # impuestos per item
+                item["impuestos"] = []
+                for imp in det.findall(".//impuesto"):
+                    imp_entry = {}
+                    for subtag in ("codigo", "codigoPorcentaje", "tarifa",
+                                   "baseImponible", "valor"):
+                        el = imp.find(subtag)
+                        if el is not None and el.text:
+                            imp_entry[subtag] = el.text.strip()
+                    if imp_entry:
+                        item["impuestos"].append(imp_entry)
+
+                if item:
+                    auth["items"].append(item)
 
         except Exception:
             frappe.log_error(frappe.get_traceback(), "Error parsing inner comprobante XML")

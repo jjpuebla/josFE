@@ -1,0 +1,16 @@
+{
+ "doctype": "DocType",
+ "name": "UI Rule",
+ "module": "ui_controls",
+ "istable": 1,
+ "fields": [
+  { "fieldname": "doctype_name", "fieldtype": "Data", "label": "Doctype Name" },
+  { "fieldname": "section_fieldname", "fieldtype": "Data", "label": "Section Fieldname" },
+  { "fieldname": "section_label", "fieldtype": "Data", "label": "Section Label" },
+  { "fieldname": "fieldname", "fieldtype": "Data", "label": "Fieldname" },
+  { "fieldname": "field_label", "fieldtype": "Data", "label": "Field Label" },
+  { "fieldname": "role", "fieldtype": "Link", "label": "Role", "options": "Role" },
+  { "fieldname": "hide", "fieldtype": "Check", "label": "Hide" },
+  { "fieldname": "is_factory", "fieldtype": "Check", "label": "Factory Rule", "default": "0" }
+ ]
+}

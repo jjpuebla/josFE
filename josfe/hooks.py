@@ -9,27 +9,27 @@ fixtures = [
     {
         "dt": "Client Script",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos", "ui_controls"]]
         ]
     },
 
     {
         "dt": "Custom Field",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos", "ui_controls"]]
         ]
     },
 
     {
         "dt": "Property Setter",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos", "ui_controls"]]
         ]
     },
     {
         "dt": "DocType",
         "filters": [
-            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos"]]
+            ["module", "in", ["ClienteSetup", "my_data", "compras", "sri_invoicing", "SRI_Nuevos_Documentos", "ui_controls"]]
         ]
     },
 

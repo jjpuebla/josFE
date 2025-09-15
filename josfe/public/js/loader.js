@@ -11,17 +11,47 @@
 
   // route/doctype map
   const scriptMap = {
-    Customer: ["/assets/josfe/js/phone_utils.js", "/assets/josfe/js/tax_id_utils.js", "/assets/josfe/js/contact_html_enhancer.js"],
-    Supplier: ["/assets/josfe/js/phone_utils.js", "/assets/josfe/js/tax_id_utils.js", "/assets/josfe/js/contact_html_enhancer.js"],
-    Contact:  ["/assets/josfe/js/phone_utils.js", "/assets/josfe/js/contact_html_enhancer.js"],
-    Company:  ["/assets/josfe/js/tax_id_utils.js"],
+    Customer: [
+      "/assets/josfe/js/phone_utils.js", 
+      "/assets/josfe/js/tax_id_utils.js", 
+      "/assets/josfe/js/contact_html_enhancer.js",
+      "/assets/josfe/js/ui_controls/role_rules.js",
+      ],
+    Supplier: [
+      "/assets/josfe/js/phone_utils.js", 
+      "/assets/josfe/js/tax_id_utils.js", 
+      "/assets/josfe/js/contact_html_enhancer.js",
+      "/assets/josfe/js/ui_controls/role_rules.js",
+      ],
+    Contact:  [
+      "/assets/josfe/js/phone_utils.js", 
+      "/assets/josfe/js/contact_html_enhancer.js",
+      "/assets/josfe/js/ui_controls/role_rules.js"
+      ],
+    Company:  [
+      "/assets/josfe/js/tax_id_utils.js",
+      "/assets/josfe/js/ui_controls/role_rules.js"
+      ],
 
-    "Sales Invoice":              ["/assets/josfe/js/user_location/form_location_lock.js"],
-    "Nota de Crédito":            ["/assets/josfe/js/user_location/form_location_lock.js"],
-    "Nota de Débito":             ["/assets/josfe/js/user_location/form_location_lock.js"],
-    "Comprobante de Retención":   ["/assets/josfe/js/user_location/form_location_lock.js"],
-    "Liquidación de Compra":      ["/assets/josfe/js/user_location/form_location_lock.js"],
-    "Guía de Remisión":           ["/assets/josfe/js/user_location/form_location_lock.js"]
+    "Sales Invoice": [
+      "/assets/josfe/js/user_location/form_location_lock.js",
+      "/assets/josfe/js/ui_controls/role_rules.js"
+      ],
+    "Nota de Crédito": [
+      "/assets/josfe/js/user_location/form_location_lock.js"
+      ],
+    "Nota de Débito": [
+      "/assets/josfe/js/user_location/form_location_lock.js"
+      ],
+    "Comprobante de Retención": [
+      "/assets/josfe/js/user_location/form_location_lock.js"
+      ],
+    "Liquidación de Compra": [
+      "/assets/josfe/js/user_location/form_location_lock.js"
+      ],
+    "Guía de Remisión": [
+      "/assets/josfe/js/user_location/form_location_lock.js"
+      ]
   };
 
   function loadForDoctype(doctype) {

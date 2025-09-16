@@ -25,36 +25,30 @@ function apply_ui_rules(frm) {
 
   Promise.all([
     load_doctype_map(dt),
-    ...frappe.user_roles.map(r =>
-      frappe.call({ method: "josfe.ui_controls.helpers.get_role_rules", args: { role: r, doctype: dt } })
-    )
+    frappe.call({ method: "josfe.ui_controls.helpers.get_effective_rules", args: { doctype: dt } })
   ])
-  .then(([m, ...responses]) => {
+  .then(([m, res]) => {
+    // Reset all visible
     (m.all_fields || []).forEach(fn => frm.toggle_display(fn, true));
-    const hideTabs = new Set(), hideFields = new Set();
 
-    responses.forEach(res => {
-      const eff = res.message || { tabs: [], fields: [] };
-      (eff.tabs || []).forEach(t => hideTabs.add(t));
-      (eff.fields || []).forEach(f => hideFields.add(f));
-    });
+    const eff = res.message || { tabs: [], fields: [] };
+    const hideTabs = new Set(eff.tabs || []);
+    const hideFields = new Set(eff.fields || []);
+
+    // Expand tab hides into field hides + hide tab containers fast
     hideTabs.forEach(tab => {
-      // Hide the entire section/tab
-      const tabWrapper = cur_frm.fields_dict[tab] && cur_frm.fields_dict[tab].wrapper;
+      const tabWrapper = frm.fields_dict[tab] && frm.fields_dict[tab].wrapper;
       if (tabWrapper) {
-        $(tabWrapper).closest(".form-section, .form-page").hide();
+        $(tabWrapper).closest(".form-section, .form-page").css("display", "none");
       }
-
-      // Also mark all fields in the tab as hidden (for consistency)
       (m.fields_by_tab[tab] || []).forEach(f => hideFields.add(f.fieldname));
     });
 
-    // Finally hide fields
+    // Hide fields
     hideFields.forEach(fn => frm.toggle_display(fn, false));
   })
   .catch(e => console.warn("apply_ui_rules error on", dt, e));
 }
-
 // Hooks per doctype from UI Settings
 frappe.call({ method: "josfe.ui_controls.helpers.list_ui_settings" })
   .then(r => {
@@ -72,7 +66,7 @@ frappe.call({ method: "josfe.ui_controls.helpers.list_ui_settings" })
 // Safeguard after reload
 frappe.after_ajax(() => {
   if (cur_frm && cur_frm.doctype && !cur_frm.__jos_rules_applied) {
-    console.log(`🔄 safeguard apply rules for ${cur_frm.doctype}`);
+    console.log(`🔄 Safeguard running apply_ui_rules for ${cur_frm.doctype}`);
     apply_ui_rules(cur_frm);
     cur_frm.__jos_rules_applied = true;
   }
@@ -82,7 +76,10 @@ frappe.after_ajax(() => {
 window.addEventListener("storage", e => {
   if (e.key !== "josfe_ui_controls_update") return;
   if (!cur_frm) return;
+
   const data = JSON.parse(e.newValue || "{}");
   if (!data.doctype || data.doctype !== cur_frm.doctype) return;
+
+  console.log(`🔄 Broadcast: reapplying rules for ${cur_frm.doctype}`);
   apply_ui_rules(cur_frm);
 });

@@ -197,10 +197,31 @@ def reset_role_rules(role: str, doctype: str):
         ch = doc.append("rules", {})
         ch.role, ch.doctype_name = r.role, r.doctype_name
         ch.section_fieldname, ch.fieldname = r.section_fieldname, r.fieldname
-        ch.hide, ch.is_factory = r.hide, 0   # <-- fix here
+        ch.hide, ch.is_factory = r.hide, 0   # active clone
 
     doc.save(ignore_permissions=True)
     return {"ok": True}
+
+
+@frappe.whitelist()
+def get_effective_rules(doctype: str):
+    """Return merged (union) UI rules for the current user across all their roles."""
+    roles = frappe.get_roles(frappe.session.user)
+    out = {"tabs": [], "fields": []}
+
+    rules = frappe.get_all(
+        "UI Rule",
+        filters={"parenttype": "UI Settings", "role": ["in", roles], "doctype_name": doctype},
+        fields=["section_fieldname", "fieldname", "hide"],
+    )
+
+    for r in rules:
+        if r.get("fieldname"):
+            out["fields"].append(r["fieldname"])
+        else:
+            out["tabs"].append(r["section_fieldname"])
+
+    return out
 
 @frappe.whitelist()
 def get_ui_rules(doctype: str, role: str=None):

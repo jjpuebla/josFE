@@ -5,12 +5,11 @@ from frappe.model.document import Document
 class UISettings(Document):
     def validate(self):
         """
-        Enforce one record per (role, doctype_name) pair.
+        Enforce uniqueness per (role, doctype_name).
         """
         if not self.role or not self.doctype_name:
             frappe.throw("Both <b>Role</b> and <b>Doctype</b> must be set.")
 
-        # Check for duplicates (excluding self)
         exists = frappe.db.exists(
             "UI Settings",
             {

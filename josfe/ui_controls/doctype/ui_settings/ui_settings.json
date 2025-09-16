@@ -1,15 +1,12 @@
 {
  "actions": [],
+ "autoname": "format:{doctype_name}-{role}",
  "creation": "2025-09-15 18:09:35.447459",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "role",
   "doctype_name",
-  "reload_btn",
-  "save_btn",
-  "save_factory_btn",
-  "reset_factory_btn",
   "matrix_html",
   "rules"
  ],
@@ -31,26 +28,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "reload_btn",
-   "fieldtype": "Button",
-   "label": "Load / Refresh Matrix"
-  },
-  {
-   "fieldname": "save_btn",
-   "fieldtype": "Button",
-   "label": "Save Active Rules"
-  },
-  {
-   "fieldname": "save_factory_btn",
-   "fieldtype": "Button",
-   "label": "Save as Factory Defaults"
-  },
-  {
-   "fieldname": "reset_factory_btn",
-   "fieldtype": "Button",
-   "label": "Reset to Factory Defaults"
-  },
-  {
    "fieldname": "matrix_html",
    "fieldtype": "HTML",
    "label": "Tabs & Fields Matrix"
@@ -64,10 +41,11 @@
   }
  ],
  "links": [],
- "modified": "2025-09-15 18:13:08.572115",
+ "modified": "2025-09-15 20:25:56.412551",
  "modified_by": "Administrator",
  "module": "ui_controls",
  "name": "UI Settings",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

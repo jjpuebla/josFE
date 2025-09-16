@@ -215,7 +215,7 @@ function saveRules(frm, asFactory){
   }).then(r => {
     console.log("📥 saveRules response:", r.message);
 
-    // 🔊 Broadcast to other tabs (Customer, Supplier, etc.)
+    // 🔊 broadcast to other tabs (Customer/Supplier/etc.) so they re-apply rules immediately
     try {
       localStorage.setItem("josfe_ui_controls_update", JSON.stringify({
         ts: Date.now(),
@@ -236,6 +236,7 @@ function saveRules(frm, asFactory){
     }
   });
 }
+
 
 function resetRules(frm){
   const { role, dt } = pair(frm);

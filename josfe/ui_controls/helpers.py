@@ -207,3 +207,11 @@ def get_ui_rules(doctype: str, role: str=None):
     # Compatibility wrapper
     from . import helpers_new  # or your new module
     return helpers_new.get_role_rules(role or frappe.session.user, doctype)
+
+
+# TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
+
+@frappe.whitelist()
+def list_ui_settings():
+    """Return all UI Settings rows (raw)."""
+    return frappe.get_all("UI Settings", fields=["name", "role", "doctype_name"])

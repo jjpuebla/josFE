@@ -200,19 +200,35 @@ function draw(frm){
 // ---------- save / reset ----------
 function saveRules(frm, asFactory){
   const { role, dt } = pair(frm);
-  if (!role || !dt) return frappe.msgprint("Select Role and Doctype first.");
+  if (!role || !dt) {
+    return frappe.msgprint("Select Role and Doctype first.");
+  }
 
   const payload = collect(frm);
+  console.log("📤 saveRules called", { role, dt, asFactory, payload });
+
   frappe.call({
     method: "josfe.ui_controls.helpers.save_role_rules",
     freeze: true,
     freeze_message: asFactory ? "Saving Factory Defaults…" : "Saving Active rules…",
-    args: { role, doctype: dt, payload: JSON.stringify(payload), as_factory: asFactory?1:0 }
-  }).then(r=>{
-    console.log("📥 saveRules response:", r.message);  // debug log
+    args: { role, doctype: dt, payload: JSON.stringify(payload), as_factory: asFactory ? 1 : 0 }
+  }).then(r => {
+    console.log("📥 saveRules response:", r.message);
+
+    // 🔊 Broadcast to other tabs (Customer, Supplier, etc.)
+    try {
+      localStorage.setItem("josfe_ui_controls_update", JSON.stringify({
+        ts: Date.now(),
+        doctype: dt,
+        role: role
+      }));
+      console.log("📡 Broadcast sent for", dt, "role", role);
+    } catch(e) {
+      console.warn("localStorage broadcast failed", e);
+    }
+
     if (r.message?.factory_created) {
       frappe.msgprint("Factory Defaults saved (Active seeded).");
-      // no frm.reload_doc() — avoid marking doc dirty/“Not Saved”
       draw(frm);
     } else {
       frappe.show_alert({ message: "Active rules saved", indicator: "green" });

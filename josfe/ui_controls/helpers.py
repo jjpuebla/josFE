@@ -204,5 +204,6 @@ def reset_role_rules(role: str, doctype: str):
 
 @frappe.whitelist()
 def get_ui_rules(doctype: str, role: str=None):
-    # optional alias so old callers keep working
-    return _effective_rules(role or frappe.session.user, doctype)
+    # Compatibility wrapper
+    from . import helpers_new  # or your new module
+    return helpers_new.get_role_rules(role or frappe.session.user, doctype)

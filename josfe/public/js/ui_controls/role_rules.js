@@ -79,3 +79,20 @@ frappe.ui.form.on("*", {
     }
   }
 });
+
+window.addEventListener("storage", e => {
+  if (e.key !== "josfe_ui_controls_update") return;
+  if (!cur_frm) return;
+
+  const data = JSON.parse(e.newValue || "{}");
+  if (!data.doctype) return;
+  if (data.doctype !== cur_frm.doctype) return;
+
+  console.log("📡 Broadcast received for", data.doctype, "→ reapplying rules");
+
+  try {
+    apply_ui_rules(cur_frm);
+  } catch(err) {
+    console.warn("apply_ui_rules failed on broadcast", err);
+  }
+});

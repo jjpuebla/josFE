@@ -98,11 +98,11 @@ doc_events = {
         "before_save": "josfe.sri_invoicing.numbering.serie_autoname.si_before_save",
         "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit",
         "on_submit": [
-            "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_submit",
+            "josfe.sri_invoicing.core.queue.api.enqueue_on_sales_invoice_submit",
             "josfe.sri_invoicing.validations.handlers.enforce_xml_on_submit", 
         ],
-        "on_cancel": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_cancel",
-        "on_trash": "josfe.sri_invoicing.queue.api.enqueue_on_sales_invoice_trash",
+        "on_cancel": "josfe.sri_invoicing.core.queue.api.enqueue_on_sales_invoice_cancel",
+        "on_trash": "josfe.sri_invoicing.core.queue.api.enqueue_on_sales_invoice_trash",
 
     },
     "SRI XML Queue": {

@@ -6,7 +6,7 @@ from josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue import (
     SRIQueueState,
     ALLOWED,
 )
-from josfe.sri_invoicing.queue import api as queue_api
+from josfe.sri_invoicing.core.queue import api as queue_api
 
 
 def _make_queue(si_name: str = "FAKE-SI") -> SRIXMLQueue:

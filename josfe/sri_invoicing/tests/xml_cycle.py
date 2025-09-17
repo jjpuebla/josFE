@@ -4,7 +4,7 @@ import re
 import frappe
 from frappe.utils import nowdate, add_days
 
-from josfe.sri_invoicing.queue import api as queue_api
+from josfe.sri_invoicing.core.queue import api as queue_api
 from josfe.sri_invoicing.xml import service as xml_service
 
 # ===================== DEFAULTS (match your UI) =====================

@@ -4,6 +4,5 @@
   "js/tax_id_utils.js": "public/js/tax_id_utils.js",
   "js/contact_html_enhancer.js": "public/js/contact_html_enhancer.js",
   "js/form_location_lock.js": "public/js/form_location_lock.js",
-  "js/user_location/session_ws_selector.js": "public/js/user_location/session_ws_selector.js",
   "js/user_location/ui_badge.js": "public/js/user_location/ui_badge.js"
 }

@@ -1,5 +1,5 @@
 import frappe
-from josfe.sri_invoicing.numbering.state import next_sequential
+from josfe.sri_invoicing.core.numbering.state import next_sequential
 from frappe.utils import cint
 
 def z3(v): 

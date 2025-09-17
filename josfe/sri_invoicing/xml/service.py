@@ -10,7 +10,7 @@ from frappe.utils import cstr, now_datetime, escape_html
 from josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue import SRIQueueState
 from josfe.sri_invoicing.xml.xades_template import inject_signature_template
 from josfe.sri_invoicing.xml import paths
-from josfe.sri_invoicing.transmission import soap, poller2
+from josfe.sri_invoicing.core.transmission import soap, poller2
 from josfe.sri_invoicing.xml.helpers import (
     _append_comment, _attach_private_file, _db_set_state, _format_msgs
 )
@@ -279,7 +279,7 @@ def _process_transmission(qdoc, stage_state: str):
 
         rc = {}
         try:
-            from josfe.sri_invoicing.transmission import soap
+            from josfe.sri_invoicing.core.transmission import soap
             rc = soap.enviar_recepcion(xml_bytes or b"")
         except Exception:
             rc = {}
@@ -328,7 +328,7 @@ def _process_transmission(qdoc, stage_state: str):
 
         auto = {}
         try:
-            from josfe.sri_invoicing.transmission import soap
+            from josfe.sri_invoicing.core.transmission import soap
             auto = soap.consultar_autorizacion(clave, ambiente)
         except Exception:
             auto = {}
@@ -383,11 +383,11 @@ def _process_transmission(qdoc, stage_state: str):
         except Exception:
             pass
         try:
-            from josfe.sri_invoicing.transmission import poller2
+            from josfe.sri_invoicing.core.transmission import poller2
             poller2.poll_autorizacion_job(queue_name=qdoc.name, clave=clave, ambiente=ambiente, attempt=0)
         except Exception:
             frappe.enqueue(
-                "josfe.sri_invoicing.transmission.poller2.poll_autorizacion_job",
+                "josfe.sri_invoicing.core.transmission.poller2.poll_autorizacion_job",
                 queue_name=qdoc.name, clave=clave, ambiente=ambiente, attempt=0,
                 queue="long", job_name=f"sri_poll:{qdoc.name}:0", enqueue_after_commit=True
             )

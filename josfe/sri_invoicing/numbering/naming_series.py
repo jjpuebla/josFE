@@ -49,7 +49,7 @@ def get_address_for_warehouse(warehouse):
 
 # --- SRI serie preview (authoritative, non-allocating) ---
 import re
-from josfe.sri_invoicing.numbering.state import peek_next
+from josfe.sri_invoicing.core.numbering.state import peek_next
 
 def z3(v: str) -> str:
     v = (v or "").strip().split(" - ", 1)[0]

@@ -169,7 +169,7 @@ frappe.ui.form.on("SRI XML Queue", {
 
             try {
               let resp = await frappe.call({
-                method: "josfe.sri_invoicing.pdf_emailing.handlers.manual_resend",
+                method: "josfe.sri_invoicing.core.pdf_emailing.handlers.manual_resend",
                 args: { queue_name: frm.doc.name },
               });
               if (!resp.exc) {

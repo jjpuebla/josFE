@@ -1,6 +1,6 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from josfe.sri_invoicing.numbering.state import peek_next, next_sequential
+from josfe.sri_invoicing.core.numbering.state import peek_next, next_sequential
 
 class TestSeriesCounter(FrappeTestCase):
     def test_post_increment_semantics(self):

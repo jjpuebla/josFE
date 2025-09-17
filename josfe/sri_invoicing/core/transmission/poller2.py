@@ -4,7 +4,7 @@ import os, traceback, datetime as dt
 import frappe
 from frappe.utils import now_datetime, add_to_date
 
-from josfe.sri_invoicing.transmission import soap
+from josfe.sri_invoicing.core.transmission import soap
 from josfe.sri_invoicing.xml.helpers import (
     _append_comment, _db_set_state, _format_msgs
 )
@@ -20,7 +20,7 @@ def _schedule_next(queue_name: str, clave: str, ambiente: str, attempt: int):
         return
     eta = add_to_date(now_datetime(), seconds=BACKOFF[attempt])
     frappe.enqueue(
-        "josfe.sri_invoicing.transmission.poller2.poll_autorizacion_job",
+        "josfe.sri_invoicing.core.transmission.poller2.poll_autorizacion_job",
         queue_name=queue_name,
         clave=clave,
         ambiente=ambiente,

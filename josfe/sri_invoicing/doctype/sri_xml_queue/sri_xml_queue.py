@@ -154,7 +154,7 @@ def get_xml_preview(name: str):
 #     import os
 #     from frappe.utils import getdate
 #     from josfe.sri_invoicing.xml import paths as xml_paths
-#     from josfe.sri_invoicing.pdf_emailing.pdf_builder import build_invoice_pdf
+#     from josfe.sri_invoicing.core.pdf_emailing.pdf_builder import build_invoice_pdf
 
 #     doc = frappe.get_doc("SRI XML Queue", name)
 
@@ -191,7 +191,7 @@ def download_pdf(name: str) -> dict:
     This avoids hitting /private/files from the browser (auth issues).
     """
     import os, base64
-    from josfe.sri_invoicing.pdf_emailing.pdf_builder import build_invoice_pdf
+    from josfe.sri_invoicing.core.pdf_emailing.pdf_builder import build_invoice_pdf
 
     qdoc = frappe.get_doc("SRI XML Queue", name)
 

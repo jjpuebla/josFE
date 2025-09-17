@@ -5,7 +5,7 @@ import os
 import frappe
 from typing import Optional, List, Tuple
 
-from josfe.sri_invoicing.pdf_emailing.pdf_builder import build_invoice_pdf
+from josfe.sri_invoicing.core.pdf_emailing.pdf_builder import build_invoice_pdf
 from josfe.sri_invoicing.xml import paths as xml_paths
 
 

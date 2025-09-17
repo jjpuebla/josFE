@@ -1,6 +1,6 @@
 import frappe
 # Importa el helper donde realmente está definido
-from josfe.sri_invoicing.numbering.serie_autoname import _ensure_sri_fields, sync_pe_next
+from josfe.sri_invoicing.core.numbering.serie_autoname import _ensure_sri_fields, sync_pe_next
 
 
 def si_before_submit(doc, method):

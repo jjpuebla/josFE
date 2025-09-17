@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import unittest
-from josfe.sri_invoicing.validations.access_key import generate_access_key
+josfe.sri_invoicing.core.utils.common
 
 class TestAccessKey(unittest.TestCase):
     def test_sample_key(self):

@@ -1,5 +1,5 @@
 import frappe
-from josfe.sri_invoicing.numbering import state
+from josfe.sri_invoicing.core.numbering import state
 
 def test_initiate_or_edit():
     # Make sure you replace with a real warehouse name that has sri_is_establishment=1

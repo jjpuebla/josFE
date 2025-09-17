@@ -151,7 +151,7 @@ frappe.ui.form.on('Credenciales SRI', {
         if (!(await ensureSaved())) return;
 
         const { message: m } = await frappe.call({
-          method: "josfe.sri_invoicing.transmission.submitters.transmitir_dummy",
+          method: "josfe.sri_invoicing.core.transmission.submitters.transmitir_dummy",
           args: { cred_name: frm.doc.name },
         });
 

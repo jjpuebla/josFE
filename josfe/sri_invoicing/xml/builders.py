@@ -11,7 +11,8 @@ from josfe.sri_invoicing.xml.utils import (
     hash8_from_string,
 )
 
-josfe.sri_invoicing.core.utils.common
+from josfe.sri_invoicing.core.validations.access_key import generate_access_key
+from josfe.sri_invoicing.core.utils import common
 from josfe.sri_invoicing.xml.utils import format_xml_bytes
 
 

@@ -85,68 +85,51 @@ function matrixBody(frm){
 }
 
 // ---------- render ----------
-function render(frm, meta, pre, hasFactory){
+function render(frm, meta, pre, hasFactory) {
   const $b = matrixBody(frm);
   const hiddenTabs   = new Set(pre?.tabs   || []);
   const hiddenFields = new Set(pre?.fields || []);
 
   const orangeStyle = "background:#ffa726;color:white;font-weight: bold;padding:2px 4px;border-radius:4px";
   const orangeField = "background:#ffa726;color:white;font-weight: bold;padding:2px 4px;border-radius:4px";
-  const greenStyle  = "color: green; font-weight: bold;";
 
   let html = "";
-  (meta.tabs||[]).forEach(t=>{
+  (meta.tabs || []).forEach(t => {
     const tfn = t.fieldname || "Main";
     const tlabel = t.label || tfn;
     const metaHiddenTab = !!t.hidden;
 
-    // Check if tab has mandatory or core-hidden fields
     const containsMandatory = (meta.fields_by_tab[tfn] || []).some(f => f.reqd);
     console.log("[UI Settings] tab check", { tab: tfn, containsMandatory, metaHiddenTab, hasFactory });
 
-    const isHiddenTab = hiddenTabs.has(tfn) || metaHiddenTab;
-    const tabChecked  = isHiddenTab ? "" : "checked";
-
-    // Disable only if it contains mandatory fields
-    const tabDisabled = containsMandatory ? "disabled" : "";
-
-    // Tooltip text
-const tabTitle =
-  containsMandatory
-    ? 'title="Tab cannot be hidden (mandatory fields inside)"'
-    : (metaHiddenTab ? 'title="Core hidden tab (allowed to hide)"' : "");
-
-
+    // Header row (no tab checkbox anymore)
     html += `<div class="card" style="margin:8px 0"><div class="card-body" style="padding:10px 12px">
       <div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px">
         <div>
-          <b style="${metaHiddenTab ? orangeStyle : ""}">${esc(tlabel)}</b> 
+          <b style="${metaHiddenTab ? orangeStyle : ""}">${esc(tlabel)}</b>
           <span class="text-muted">(${esc(tfn)})</span>
         </div>
         <div style="display:flex; align-items:center; gap:12px">
-          <label ${tabTitle} style="margin:0">
-            <input type="checkbox" class="jos-tab" data-tab="${esc(tfn)}" ${tabChecked} ${tabDisabled}>
-            <span>Visible</span>
-          </label>
-          <a href="#" class="jos-toggle-tab" data-tab="${esc(tfn)}" data-mandatory="${containsMandatory ? 1 : 0}" style="font-size:12px">Select All</a>
+          <a href="#" class="jos-toggle-tab" data-tab="${esc(tfn)}" data-mandatory="${containsMandatory ? 1 : 0}" style="font-size:12px">
+            Select All
+          </a>
         </div>
       </div><div class="row">`;
 
-    (meta.fields_by_tab[tfn]||[]).forEach(f=>{
+    (meta.fields_by_tab[tfn] || []).forEach(f => {
       const metaHidden = !!f.hidden;
       const isHidden   = hiddenFields.has(f.fieldname) || metaHidden;
       const checked    = isHidden ? "" : "checked";
       let disabled = "", style = "", title = "";
 
       if (f.reqd) {
-        // Mandatory: render as green pill, no checkbox
         html += `<div class="col-sm-4" style="margin-bottom:6px">
           <div title="Mandatory field"
               style="display:inline-block;padding:6px 10px;border-radius:6px;background:#2e7d32;color:#fff;font-weight:600;">
             ${esc(f.label)} <span class="text-muted" style="color:#ccc !important;">(${esc(f.fieldname)})</span>
           </div>
         </div>`;
-        return; // ← skip normal checkbox rendering
+        return;
       } else if (metaHidden) {
         style = orangeField;
         disabled = hasFactory ? "disabled" : "";
@@ -166,16 +149,16 @@ const tabTitle =
   });
 
   $b.html(html);
-    // --- toggle handler for Select/Deselect All ---
+
+  // --- Select All / Deselect All link handler ---
   $b.find(".jos-toggle-tab").off("click").on("click", function(e){
     e.preventDefault();
     const tab = $(this).data("tab");
     const $fields = $b.find(`.jos-field[data-tab="${tab}"]:not(:disabled)`);
-    const $tabCheckbox = $b.find(`.jos-tab[data-tab="${tab}"]`);
-    const allChecked = $fields.length && $fields.filter(":checked").length === $fields.length;
     const hasMandatory = $(this).data("mandatory") === 1;
 
-    // 🔍 Debug logs
+    const allChecked = $fields.length && $fields.filter(":checked").length === $fields.length;
+
     console.log("[UI Settings] toggle clicked", {
       tab,
       totalFields: $fields.length,
@@ -194,17 +177,16 @@ const tabTitle =
       // Deselect all
       $fields.prop("checked", false);
       $(this).text("Select All");
-      $tabCheckbox.prop("checked", false);
       console.log("[UI Settings] ✅ Deselect All in tab", tab);
     } else {
       // Select all
       $fields.prop("checked", true);
       $(this).text("Deselect All");
-      $tabCheckbox.prop("checked", true);
       console.log("[UI Settings] ✅ Select All in tab", tab);
     }
   });
 }
+
 
 // ---------- collect (unchecked ⇒ hidden) ----------
 function collect(frm){

@@ -91,7 +91,7 @@ function maybe_load_pe_options(frm, clear) {
   }
 
   frappe.call({
-    method: "josfe.sri_invoicing.numbering.state.list_active_emission_points",
+    method: "josfe.sri_invoicing.core.numbering.state.list_active_emission_points",
     args: { warehouse_name: wh }
   }).then(r => {
     const rows = r.message || [];
@@ -122,7 +122,7 @@ async function paintSeriePreview(frm) {
   const myReq = ++__seriePreviewReq;
   try {
     const { message } = await frappe.call({
-      method: "josfe.sri_invoicing.numbering.naming_series.peek_next_si_series",
+      method: "josfe.sri_invoicing.core.numbering.naming_series.peek_next_si_series",
       args: { warehouse: wh, pe_code: peCode }
     });
     if (myReq !== __seriePreviewReq) return;

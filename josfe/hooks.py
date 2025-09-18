@@ -89,17 +89,17 @@ doc_events = {
     },
     "Warehouse": {
         "validate": [
-            "josfe.sri_invoicing.validations.warehouse.validate_warehouse_sri",
-            "josfe.sri_invoicing.validations.warehouse.validate_no_duplicate_pe_per_parent",
+            "josfe.sri_invoicing.core.validations.warehouse.validate_warehouse_sri",
+            "josfe.sri_invoicing.core.validations.warehouse.validate_no_duplicate_pe_per_parent",
         ],
     },
     "Sales Invoice": {        
-        "autoname": "josfe.sri_invoicing.numbering.serie_autoname.si_autoname",
-        "before_save": "josfe.sri_invoicing.numbering.serie_autoname.si_before_save",
-        "before_submit": "josfe.sri_invoicing.numbering.hooks_sales_invoice.si_before_submit",
+        "autoname": "josfe.sri_invoicing.core.numbering.serie_autoname.si_autoname",
+        "before_save": "josfe.sri_invoicing.core.numbering.serie_autoname.si_before_save",
+        "before_submit": "josfe.sri_invoicing.core.numbering.hooks_sales_invoice.si_before_submit",
         "on_submit": [
             "josfe.sri_invoicing.core.queue.api.enqueue_on_sales_invoice_submit",
-            "josfe.sri_invoicing.validations.handlers.enforce_xml_on_submit", 
+            "josfe.sri_invoicing.core.validations.handlers.enforce_xml_on_submit", 
         ],
         "on_cancel": "josfe.sri_invoicing.core.queue.api.enqueue_on_sales_invoice_cancel",
         "on_trash": "josfe.sri_invoicing.core.queue.api.enqueue_on_sales_invoice_trash",
@@ -110,7 +110,7 @@ doc_events = {
             "josfe.sri_invoicing.xml.service.on_queue_update",
             "josfe.sri_invoicing.core.pdf_emailing.handlers.on_queue_update",
         ],
-        "autoname": "josfe.sri_invoicing.numbering.xml_autoname.xml_queue_autoname",
+        "autoname": "josfe.sri_invoicing.core.numbering.xml_autoname.xml_queue_autoname",
     }
 }
 
@@ -136,7 +136,7 @@ app_include_css = [
 
 scheduler_events = {
     "daily": [
-        "josfe.sri_invoicing.numbering.validate.daily_check",
+        "josfe.sri_invoicing.core.numbering.validate.daily_check",
     ]
 }
 

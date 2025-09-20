@@ -1,0 +1,111 @@
+{
+ "actions": [],
+ "creation": "2025-09-19 15:41:59.064479",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "credit_note_type",
+  "company",
+  "customer",
+  "posting_date",
+  "source_invoice",
+  "return_items",
+  "free_items",
+  "linked_return_si",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "credit_note_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Tipo de NC",
+   "options": "By Products\nFree-form",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.credit_note_type=='By Products'",
+   "fieldname": "source_invoice",
+   "fieldtype": "Link",
+   "label": "Source Invoice",
+   "options": "Sales Invoice"
+  },
+  {
+   "depends_on": "eval:doc.credit_note_type=='By Products'",
+   "fieldname": "return_items",
+   "fieldtype": "Table",
+   "label": "Return Items",
+   "options": "Nota Credito Return Item"
+  },
+  {
+   "depends_on": "eval:doc.credit_note_type=='Free-form'",
+   "fieldname": "free_items",
+   "fieldtype": "Table",
+   "label": "Free-form Items",
+   "options": "Nota Credito Free Item"
+  },
+  {
+   "fieldname": "linked_return_si",
+   "fieldtype": "Link",
+   "label": "Linked Return Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Nota Credito FE",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-09-19 23:23:36.822461",
+ "modified_by": "Administrator",
+ "module": "sri_invoicing",
+ "name": "Nota Credito FE",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

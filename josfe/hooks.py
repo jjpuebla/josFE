@@ -120,10 +120,7 @@ app_include_js = ["/assets/josfe/js/loader.js"]
 # Map Doctype -> JS file (path is relative to your app's package root)
 doctype_js = {
     "Warehouse": "public/js/sri_invoicing/warehouse_sri_seq.min.js",
-    "Sales Invoice": [
-        "public/js/sri_invoicing/sales_invoice_series.js",
-        "public/js/sri_invoicing/si_credit_note.js"
-    ]
+    "Sales Invoice": "public/js/sri_invoicing/sales_invoice_series.js",
 }
 
 doctype_list_js = {

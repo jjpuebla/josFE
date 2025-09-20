@@ -1,0 +1,60 @@
+{
+ "doctype": "DocType",
+ "name": "Nota Credito Return Item",
+ "module": "sri_invoicing",
+ "istable": 1,
+ "editable_grid": 1,
+ "custom": 0,
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "label": "Item",
+   "fieldtype": "Link",
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "orig_qty",
+   "label": "Original Qty",
+   "fieldtype": "Float",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "return_qty",
+   "label": "Return Qty",
+   "fieldtype": "Float",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "rate",
+   "label": "Rate",
+   "fieldtype": "Currency",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "amount",
+   "label": "Amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "src_rowname",
+   "label": "Source Rowname",
+   "fieldtype": "Data",
+   "hidden": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  }
+ ]
+}

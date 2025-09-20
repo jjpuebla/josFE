@@ -111,7 +111,13 @@ doc_events = {
             "josfe.sri_invoicing.core.pdf_emailing.handlers.on_queue_update",
         ],
         "autoname": "josfe.sri_invoicing.core.numbering.xml_autoname.xml_queue_autoname",
-    }
+    },
+    
+    "Nota Credito FE": {
+        "on_submit": "josfe.sri_invoicing.core.queue.api.enqueue_on_nota_credito_submit",
+        "on_cancel": "josfe.sri_invoicing.core.queue.api.enqueue_on_nota_credito_cancel",
+        "on_trash":  "josfe.sri_invoicing.core.queue.api.enqueue_on_nota_credito_trash",
+    },
 }
 
 # js files:

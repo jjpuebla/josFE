@@ -1,13 +1,15 @@
 {
  "actions": [],
  "autoname": "naming_series:",
- "creation": "2025-09-11 09:20:04.234220",
+ "creation": "2025-09-17 23:01:39.710813",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
   "posting_date",
   "sales_invoice",
+  "reference_doctype",
+  "reference_name",
   "company",
   "custom_jos_level3_warehouse",
   "customer",
@@ -38,7 +40,6 @@
    "label": "Factura de Venta",
    "options": "Sales Invoice",
    "read_only": 1,
-   "reqd": 1,
    "unique": 1
   },
   {
@@ -147,10 +148,22 @@
    "fieldname": "pdf_emailed",
    "fieldtype": "Check",
    "label": "RIDE Enviado?"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Documento"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Documento Referencia"
   }
  ],
  "links": [],
- "modified": "2025-09-11 09:47:49.212990",
+ "modified": "2025-09-20 01:44:12.028859",
  "modified_by": "Administrator",
  "module": "sri_invoicing",
  "name": "SRI XML Queue",

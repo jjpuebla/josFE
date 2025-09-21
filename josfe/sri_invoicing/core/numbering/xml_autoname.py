@@ -5,26 +5,35 @@ def xml_queue_autoname(doc, method=None):
     """
     Autoname for SRI XML Queue.
     Format: XML-{EC}-{YY}-{#####}
-    - EC: establishment code (3 digits)
+    - EC: establishment code (3 digits) from Warehouse.custom_establishment_code
     - YY: 2-digit year
-    - ##### sequential counter (per EC+Year, resets every January 1st)
+    - #####: per-EC+Year counter
     """
-    ec = getattr(doc, "custom_jos_ec_code", None)
-    if not ec:
-        frappe.throw("Falta el código de establecimiento (custom_jos_ec_code).")
+    # 1) Resolve Warehouse on the queue row or from the referenced document
+    wh = getattr(doc, "custom_jos_level3_warehouse", None)
 
-    # Two-digit year suffix
+    if not wh and getattr(doc, "sales_invoice", None):
+        wh = frappe.db.get_value("Sales Invoice", doc.sales_invoice, "custom_jos_level3_warehouse")
+
+    if not wh and getattr(doc, "reference_doctype", None) == "Nota Credito FE":
+        wh = frappe.db.get_value("Nota Credito FE", getattr(doc, "reference_name", None), "custom_jos_level3_warehouse")
+
+    # 2) Establishment from Warehouse
+    ec = frappe.get_cached_value("Warehouse", wh, "custom_establishment_code") if wh else None
+    if not ec:
+        frappe.throw("Falta el código de establecimiento en el Warehouse (custom_establishment_code). Seleccione una Sucursal válida.")
+
+    # 3) Prefix: XML-EC-YY-
     year = now_datetime().year % 100
     prefix = f"XML-{ec}-{year:02d}-"
 
-    # Lock table to avoid race conditions (multi-user safety)
+    # 4) Allocate next sequential within prefix
     frappe.db.sql("LOCK TABLES `tabSRI XML Queue` WRITE")
-
     try:
-        # Only count within current EC+Year prefix
-        last = frappe.db.sql(
+        row = frappe.db.sql(
             """
-            SELECT name FROM `tabSRI XML Queue`
+            SELECT name
+            FROM `tabSRI XML Queue`
             WHERE name LIKE %s
             ORDER BY name DESC
             LIMIT 1
@@ -32,18 +41,12 @@ def xml_queue_autoname(doc, method=None):
             (f"{prefix}%",),
             as_dict=True,
         )
-
-        if last:
+        last_seq = 0
+        if row:
             try:
-                last_seq = int(last[0].name.split("-")[-1])
+                last_seq = int(row[0].name.split("-")[-1])
             except Exception:
                 last_seq = 0
-        else:
-            last_seq = 0
-
-        # Next sequential
-        next_seq = last_seq + 1
-        doc.name = f"{prefix}{next_seq:05d}"
-
+        doc.name = f"{prefix}{last_seq + 1:05d}"
     finally:
         frappe.db.sql("UNLOCK TABLES")

@@ -1,4 +1,6 @@
-from xml.etree.ElementTree import Element, SubElement, tostring
+
+from lxml.etree import Element, SubElement, tostring
+
 from lxml import etree
 from decimal import Decimal, ROUND_UP, ROUND_CEILING, ROUND_HALF_UP
 
@@ -6,7 +8,7 @@ import frappe
 from frappe.utils import formatdate
 from josfe.sri_invoicing.xml.utils import (
     _text, D, money, qty6, ddmmyyyy,
-    get_company_address, get_warehouse_address, get_ce_pe_seq,
+    get_company_address, get_warehouse_address, get_ce_pe_seq, get_ce_pe_seq_nc,
     get_obligado_contabilidad, buyer_id_type,
     get_forma_pago, map_tax_item, map_tax_invoice, get_info_adicional,
     hash8_from_string,
@@ -14,9 +16,8 @@ from josfe.sri_invoicing.xml.utils import (
 
 from josfe.sri_invoicing.core.validations.access_key import generate_access_key
 from josfe.sri_invoicing.core.utils import common
-from josfe.sri_invoicing.xml.utils import format_xml_bytes
+from josfe.sri_invoicing.xml.utils import _text, format_xml_bytes
 from josfe.sri_invoicing.xml import utils as xml_utils
-from josfe.sri_invoicing.numbering import state as numbering_stat
 
 # -------------------------
 # Pretty-print XML helper
@@ -222,90 +223,150 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
     }
     return xml_string, meta
 
-
-import frappe
-from frappe.utils import formatdate
-from lxml import etree
-from josfe.sri_invoicing.xml import utils as xml_utils
-
 def build_nota_credito_xml(nc_name: str):
-    """Build Nota de Crédito XML directly from Nota Credito FE doctype.
-    
-    Note: estab/ptoEmi/secuencial assignment is handled in the queue layer.
-    This builder only prepares the XML structure and returns meta placeholders.
-    """
+    """Build SRI Nota de Crédito XML (spec-complete) from Nota Credito FE doctype."""
     nc = frappe.get_doc("Nota Credito FE", nc_name)
+    company = frappe.get_doc("Company", nc.company)
 
-    # --- Placeholder meta (queue will fill secuencial) ---
-    estab = "001"   # TODO: resolve from Warehouse / user location
-    pto   = "001"   # TODO: resolve from Punto de Emisión
-    meta = {
-        "estab": estab,
-        "pto_emi": pto,
-        "secuencial": None,  # will be injected later
-    }
+    # --- CE/PE/Sequential from utils (reuses SI's CE/PE where applicable) ---
+    codes = get_ce_pe_seq_nc(nc)
+    ce, pe, sec9 = codes["ce"], codes["pe"], codes["secuencial"]
+
+    # --- Ambiente & tipoEmision (reuse SI logic) ---
+    def _resolve_ambiente_for_company(comp: str) -> str:
+        try:
+            amb = frappe.db.get_value("Credenciales SRI", {"company": comp, "jos_activo": 1}, "jos_ambiente")
+            if amb:
+                return "1" if amb.strip().lower().startswith("prueb") else "2"
+            env = frappe.db.get_single_value("FE Settings", "env_override")
+            if env:
+                return "1" if env.strip().lower().startswith("prueb") else "2"
+        except Exception:
+            pass
+        return "2"
+
+    ambiente = _resolve_ambiente_for_company(nc.company)
+    tipo_emision = "1"
 
     # --- Root XML element ---
     root = etree.Element("notaCredito", id="comprobante", version="1.0.0")
 
-    # infoTributaria
+    # --- infoTributaria ---
     infoTrib = etree.SubElement(root, "infoTributaria")
-    xml_utils.add_text(infoTrib, "razonSocial", nc.company)
-    xml_utils.add_text(infoTrib, "ruc", frappe.db.get_value("Company", nc.company, "tax_id"))
-    xml_utils.add_text(infoTrib, "estab", estab)
-    xml_utils.add_text(infoTrib, "ptoEmi", pto)
-    # ⛔ no <secuencial> here, queue will insert it
+    _text(infoTrib, "ambiente", ambiente)
+    _text(infoTrib, "tipoEmision", tipo_emision)
+    _text(infoTrib, "razonSocial", company.custom_jos_razon_social or company.company_name)
+    _text(infoTrib, "nombreComercial", company.custom_jos_nombre_comercial or company.company_name)
+    _text(infoTrib, "ruc", company.tax_id)
+    _text(infoTrib, "codDoc", "04")  # Nota de Crédito
 
-    # infoNotaCredito
+    # Access key (clave de acceso) for NC
+    clave = generate_access_key(
+        fecha_emision_ddmmyyyy=ddmmyyyy(nc.posting_date),
+        cod_doc="04",
+        ruc=company.tax_id,
+        ambiente=ambiente,
+        estab=ce,
+        pto_emi=pe,
+        secuencial_9d=sec9,
+        codigo_numerico_8d="12345678",
+        tipo_emision=tipo_emision,
+    )
+    _text(infoTrib, "claveAcceso", clave)
+    _text(infoTrib, "estab", ce)
+    _text(infoTrib, "ptoEmi", pe)
+    _text(infoTrib, "secuencial", sec9)
+    _text(infoTrib, "dirMatriz", company.custom_jos_direccion_matriz or get_company_address(company.name, prefer_title="Matriz"))
+
+    # --- infoNotaCredito ---
     infoNC = etree.SubElement(root, "infoNotaCredito")
-    xml_utils.add_text(infoNC, "fechaEmision", formatdate(nc.posting_date, "dd/mm/yyyy"))
-    xml_utils.add_text(infoNC, "dirEstablecimiento", "Dirección")  # TODO: from Company/Warehouse
-    xml_utils.add_text(infoNC, "tipoIdentificacionComprador", "05")  # TODO: from customer.tax_id_type
-    xml_utils.add_text(infoNC, "razonSocialComprador", frappe.db.get_value("Customer", nc.customer, "customer_name"))
-    xml_utils.add_text(infoNC, "identificacionComprador", frappe.db.get_value("Customer", nc.customer, "tax_id"))
-    xml_utils.add_text(infoNC, "totalSinImpuestos", "0.00")
-    xml_utils.add_text(infoNC, "valorModificacion", "0.00")
-    xml_utils.add_text(infoNC, "moneda", "DOLAR")
+    _text(infoNC, "fechaEmision", formatdate(nc.posting_date, "dd/mm/yyyy"))
+    # Establishment address (warehouse), not company
+    wh = getattr(nc, "custom_jos_level3_warehouse", None)
+    _text(infoNC, "dirEstablecimiento", get_warehouse_address(wh))
+    buyer_tax = frappe.db.get_value("Customer", nc.customer, "tax_id")
+    _text(infoNC, "tipoIdentificacionComprador", buyer_id_type(buyer_tax))
+    _text(infoNC, "razonSocialComprador", frappe.db.get_value("Customer", nc.customer, "customer_name"))
+    _text(infoNC, "identificacionComprador", buyer_tax or "")
+    _text(infoNC, "moneda", company.default_currency or "USD")
 
-    # detalles
+    # Reference to original document (if present)
+    # Note: fields per SRI spec (motivo, numDocModificado, fechaEmisionDocSustento) may be required
+    # Here we include if source exists
+    motivo = getattr(nc, "reason", None) or "Devolución"
+    _text(infoNC, "motivo", motivo)
+    src_si_name = getattr(nc, "linked_return_si", None) or getattr(nc, "source_invoice", None)
+    if src_si_name:
+        src_si = frappe.get_doc("Sales Invoice", src_si_name)
+        _text(infoNC, "numDocModificado", src_si.name)
+        _text(infoNC, "fechaEmisionDocSustento", formatdate(src_si.posting_date, "dd/mm/yyyy"))
+
+    # --- detalles ---
     detalles = etree.SubElement(root, "detalles")
-    total_amount = 0
+    total_base = D("0.00")
+    total_taxes = D("0.00")
 
     if nc.credit_note_type == "By Products":
         for r in nc.return_items:
+            if not r.return_qty:
+                continue
             det = etree.SubElement(detalles, "detalle")
-            xml_utils.add_text(det, "codigoInterno", r.item_code)
-            xml_utils.add_text(det, "descripcion", r.item_code)
-            xml_utils.add_text(det, "cantidad", str(abs(r.return_qty)))
-            xml_utils.add_text(det, "precioUnitario", str(r.rate or 0))
-            xml_utils.add_text(det, "descuento", str(r.discount_amount or 0))
-            amount = (r.return_qty or 0) * (r.rate or 0)
-            xml_utils.add_text(det, "precioTotalSinImpuesto", str(abs(amount)))
-            total_amount += amount
+            _text(det, "codigoInterno", r.item_code)
+            _text(det, "descripcion", r.item_code)
+            qty = D(abs(r.return_qty))
+            rate = D(r.rate or 0)
+            line_base = (qty * rate).quantize(D("0.01"), rounding=ROUND_HALF_UP)
+            _text(det, "cantidad", f"{qty:.6f}")
+            _text(det, "precioUnitario", f"{rate:.2f}")
+            _text(det, "descuento", f"{D(r.discount_amount or 0):.2f}")
+            _text(det, "precioTotalSinImpuesto", f"{line_base:.2f}")
+            total_base += line_base
+
+            # Taxes for this line (reuse SI taxes if available)
+            imp_el = etree.SubElement(det, "impuestos")
+            # you can optionally pull the source SI row to know tax percentages
+            # for now we default to IVA 0% if unknown
+            i = etree.SubElement(imp_el, "impuesto")
+            _text(i, "codigo", "2")
+            _text(i, "codigoPorcentaje", "0")
+            _text(i, "tarifa", "0.00")
+            _text(i, "baseImponible", f"{line_base:.2f}")
+            _text(i, "valor", "0.00")
 
     elif nc.credit_note_type == "Free-form":
+        default_item = getattr(nc, "free_item_code", None) or "FREE"
         for r in nc.free_items:
+            qty = D(abs(r.qty or 0))
+            rate = D(r.rate or 0)
+            if qty == 0 and rate == 0:
+                continue
             det = etree.SubElement(detalles, "detalle")
-            xml_utils.add_text(det, "codigoInterno", "FREE")
-            xml_utils.add_text(det, "descripcion", r.description)
-            xml_utils.add_text(det, "cantidad", str(abs(r.qty or 0)))
-            xml_utils.add_text(det, "precioUnitario", str(r.rate or 0))
-            xml_utils.add_text(det, "descuento", "0.00")
-            amount = (r.qty or 0) * (r.rate or 0)
-            xml_utils.add_text(det, "precioTotalSinImpuesto", str(abs(amount)))
-            total_amount += amount
+            _text(det, "codigoInterno", default_item)
+            _text(det, "descripcion", r.description or default_item)
+            line_base = (qty * rate).quantize(D("0.01"), rounding=ROUND_HALF_UP)
+            _text(det, "cantidad", f"{qty:.6f}")
+            _text(det, "precioUnitario", f"{rate:.2f}")
+            _text(det, "descuento", "0.00")
+            _text(det, "precioTotalSinImpuesto", f"{line_base:.2f}")
+            total_base += line_base
 
-    # update totals
-    totalSinImpuestos = root.find(".//totalSinImpuestos")
-    valorModificacion = root.find(".//valorModificacion")
-    if totalSinImpuestos is not None:
-        totalSinImpuestos.text = f"{abs(total_amount):.2f}"
-    if valorModificacion is not None:
-        valorModificacion.text = f"{abs(total_amount):.2f}"
+            imp_el = etree.SubElement(det, "impuestos")
+            i = etree.SubElement(imp_el, "impuesto")
+            _text(i, "codigo", "2")
+            _text(i, "codigoPorcentaje", "0")
+            _text(i, "tarifa", "0.00")
+            _text(i, "baseImponible", f"{line_base:.2f}")
+            _text(i, "valor", "0.00")
 
-    # Convert XML tree to string
-    xml_string = etree.tostring(
-        root, pretty_print=True, encoding="utf-8", xml_declaration=True
-    ).decode("utf-8")
+    # Update totals in infoNotaCredito
+    _text(infoNC, "totalSinImpuestos", f"{total_base:.2f}")
+    _text(infoNC, "valorModificacion", f"{(total_base + total_taxes):.2f}")
 
-    return xml_string, meta
+    # --- infoAdicional (optional) ---
+    infoAd = etree.SubElement(root, "infoAdicional")
+    ca = etree.SubElement(infoAd, "campoAdicional", {"nombre": "Documento"})
+    ca.text = nc.name
+
+    # Output
+    xml_string = etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=True).decode("utf-8")
+    return xml_string, {"clave_acceso": clave, "estab": ce, "pto_emi": pe, "secuencial": sec9}

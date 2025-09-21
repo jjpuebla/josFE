@@ -6,6 +6,7 @@ import os, re, tempfile, subprocess
 import frappe
 import html
 from frappe.utils import cstr, now_datetime, escape_html
+from josfe.sri_invoicing.xml.utils import format_xml_bytes
 
 from josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue import SRIQueueState
 from josfe.sri_invoicing.xml.xades_template import inject_signature_template

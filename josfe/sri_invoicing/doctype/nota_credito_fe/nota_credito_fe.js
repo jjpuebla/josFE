@@ -1,8 +1,7 @@
 /* global frappe */
-console.log("[Nota Credito FE] client loaded");
+console.log("[Nota Credito FE] client loaded — simple mode");
 
 (() => {
-  // ---------- Helpers ----------
   function setInvoiceQuery(frm) {
     if (frm.doc.credit_note_type !== "By Products") return;
     frm.set_query("source_invoice", () => ({
@@ -14,34 +13,45 @@ console.log("[Nota Credito FE] client loaded");
     }));
   }
 
-  async function loadFromSource(frm) {
-    if (frm.doc.credit_note_type !== "By Products") return;
-    const src = frm.doc.source_invoice;
-    if (!src) {
+  function copyNumberingFromSI(frm, siName) {
+    if (!siName) return Promise.resolve();
+    return frappe.call({
+      method: "frappe.client.get",
+      args: { doctype: "Sales Invoice", name: siName },
+    }).then((r) => {
+      const si = r.message || {};
+      frm.set_value("custom_jos_level3_warehouse", si.custom_jos_level3_warehouse || "");
+      frm.set_value("custom_jos_sri_emission_point_code", si.custom_jos_sri_emission_point_code || "");
+    });
+  }
+
+  function loadItemsFromSource(frm, siName) {
+    if (!siName) {
       frm.clear_table("return_items");
       frm.refresh_field("return_items");
-      return;
+      return Promise.resolve();
     }
-
-    const r = await frappe.call({
+    return frappe.call({
       method: "josfe.sri_invoicing.doctype.nota_credito_fe.api.get_source_invoice_items",
-      args: { source_name: src },
+      args: { source_name: siName },
+    }).then((r) => {
+      const rows = (r.message && r.message.items) || [];
+      frm.clear_table("return_items");
+
+      rows.forEach((x) => {
+        const d = frm.add_child("return_items");
+        d.item_code = x.item_code;
+        d.orig_qty = x.qty;
+        d.return_qty = 0;
+        d.rate = x.rate;
+        d.amount = 0;
+        if (frm.get_field("return_items")?.grid?.get_field("uom")) {
+          d.uom = x.uom || "";
+        }
+      });
+
+      frm.refresh_field("return_items");
     });
-
-    const rows = (r.message && r.message.items) || [];
-    frm.clear_table("return_items");
-
-    rows.forEach((x) => {
-      const d = frm.add_child("return_items");
-      d.item_code = x.item_code;
-      d.orig_qty = x.qty;
-      d.return_qty = 0; // user enters later
-      d.rate = x.rate;
-      d.amount = 0;
-      d.src_rowname = x.name;
-    });
-
-    frm.refresh_field("return_items");
   }
 
   function enforceReturnRow(frm, cdt, cdn) {
@@ -53,7 +63,7 @@ console.log("[Nota Credito FE] client loaded");
     if (rq > cap) {
       rq = cap;
       frappe.model.set_value(cdt, cdn, "return_qty", cap);
-      frappe.show_alert(`Max return qty is ${cap}`, 3);
+      frappe.show_alert(__("Max return qty is {0}", [cap]), 3);
     }
 
     const rate = Number(d.rate) || 0;
@@ -67,18 +77,46 @@ console.log("[Nota Credito FE] client loaded");
     frappe.model.set_value(cdt, cdn, "amount", qty * rate);
   }
 
-  // ---------- Bindings ----------
+  function lockReturnItemsGrid(frm) {
+    const grid = frm.get_field("return_items")?.grid;
+    if (!grid) return;
+    ["item_code","orig_qty","rate","amount","uom"].forEach((fname) => {
+      const df = grid.get_field(fname);
+      if (df) df.read_only = 1;
+    });
+    grid.refresh();
+  }
+
   frappe.ui.form.on("Nota Credito FE", {
     setup(frm) { setInvoiceQuery(frm); },
-    refresh(frm) { setInvoiceQuery(frm); },
+    refresh(frm) { setInvoiceQuery(frm); lockReturnItemsGrid(frm); },
     company(frm) { setInvoiceQuery(frm); },
     customer(frm) { setInvoiceQuery(frm); },
-    credit_note_type(frm) { setInvoiceQuery(frm); },
-    source_invoice: loadFromSource,
+
+    credit_note_type(frm) {
+      setInvoiceQuery(frm);
+      lockReturnItemsGrid(frm);
+      if (frm.doc.credit_note_type === "By Products") {
+        if (frm.doc.free_items?.length) {
+          frm.clear_table("free_items"); frm.refresh_field("free_items");
+        }
+      } else {
+        if (frm.doc.return_items?.length) {
+          frm.clear_table("return_items"); frm.refresh_field("return_items");
+        }
+      }
+    },
+
+    source_invoice(frm) {
+      const src = frm.doc.source_invoice;
+      copyNumberingFromSI(frm, src).then(() => loadItemsFromSource(frm, src))
+                                   .then(() => lockReturnItemsGrid(frm));
+    },
   });
 
   frappe.ui.form.on("Nota Credito Return Item", {
     return_qty: enforceReturnRow,
+    rate: enforceReturnRow,
   });
 
   frappe.ui.form.on("Nota Credito Free Item", {

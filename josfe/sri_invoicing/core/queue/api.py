@@ -2,14 +2,14 @@
 # apps/josfe/josfe/sri_invoicing/queue/api.py
 
 from __future__ import annotations
+from typing import Optional
 import frappe
 from frappe import _
-from josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue import SRIQueueState
 from josfe.sri_invoicing.xml.builders import build_factura_xml
 from josfe.sri_invoicing.xml import service as xml_service, paths as xml_paths
 
 from josfe.sri_invoicing.xml import builders
-from josfe.sri_invoicing.core.queue.states import SRIQueueState
+from josfe.sri_invoicing.doctype.sri_xml_queue.sri_xml_queue import SRIQueueState
 
 
 
@@ -32,41 +32,13 @@ def build_xml_for_queue(qname: str) -> str:
             from josfe.sri_invoicing.xml.builders import build_nota_credito_xml
             xml_string, meta = build_nota_credito_xml(q.reference_name)
 
-            # 🔑 Allocate + bump Nota de Crédito counter
-            from josfe.sri_invoicing.numbering.state import next_sequential
-            seq = next_sequential(
-                company=q.company,
-                pto_emi=meta.get("pto_emi"),
-                doc_type="Nota de Crédito"
-            )
-            meta["secuencial"] = f"{seq:09d}"
-
         elif getattr(q, "sales_invoice", None):
             from josfe.sri_invoicing.xml.builders import build_factura_xml
             si = frappe.get_doc("Sales Invoice", q.sales_invoice)
             xml_string, meta = build_factura_xml(si.name)
 
-            # 🔑 Allocate + bump Factura counter
-            from josfe.sri_invoicing.numbering.state import next_sequential
-            seq = next_sequential(
-                company=q.company,
-                pto_emi=meta.get("pto_emi"),
-                doc_type="Factura"
-            )
-            meta["secuencial"] = f"{seq:09d}"
-
         else:
             frappe.throw("Queue row missing document reference")
-
-        # --- Inject real secuencial into XML ---
-        from lxml import etree
-        root = etree.fromstring(xml_string.encode("utf-8"))
-        sec_node = root.find(".//secuencial")
-        if sec_node is not None:
-            sec_node.text = meta["secuencial"]
-        xml_string = etree.tostring(
-            root, pretty_print=True, encoding="utf-8", xml_declaration=True
-        ).decode("utf-8")
 
         # --- Filename and write to Generado folder ---
         estab = (meta.get("estab") or "000").zfill(3)
@@ -80,8 +52,10 @@ def build_xml_for_queue(qname: str) -> str:
             data=xml_string.encode("utf-8"),
         )
 
+        # --- Persist file path in queue ---
         q.db_set("xml_file", file_url)
 
+        # 🔔 Notify once XML is ready
         frappe.publish_realtime(
             "sri_xml_queue_changed",
             {"name": q.name, "state": q.state},
@@ -97,8 +71,12 @@ def build_xml_for_queue(qname: str) -> str:
         raise
 
 
+
 def enqueue_on_sales_invoice_submit(doc, method):
     """Hook: enqueue SI to the SRI XML Queue on submit."""
+    # 🚫 If this SI is a Credit Note return, do NOT enqueue as Factura
+    if getattr(doc, "is_return", 0):
+        return
     enqueue_for_sales_invoice(doc.name)
 
 def enqueue_on_sales_invoice_cancel(doc, method):
@@ -131,10 +109,12 @@ def enqueue_on_sales_invoice_trash(doc, method):
 on_sales_invoice_trash = enqueue_on_sales_invoice_trash
 
 def enqueue_for_sales_invoice(si_name: str) -> str:
-    """Insert the queue row for a Sales Invoice and build its XML (state = Generado)."""
     si = frappe.get_doc("Sales Invoice", si_name)
     if si.docstatus != 1:
         frappe.throw(_("Sales Invoice {0} must be submitted to enqueue.").format(si.name))
+    # 🚫 safety: never enqueue returns as factura
+    if getattr(si, "is_return", 0):
+        return si_name  # do nothing
 
     ec_code = si.name[0:3] if si.name and len(si.name) >= 3 else None
 
@@ -144,9 +124,10 @@ def enqueue_for_sales_invoice(si_name: str) -> str:
         "company": si.company,
         "customer": getattr(si, "customer", None),
         "custom_jos_level3_warehouse": getattr(si, "custom_jos_level3_warehouse", None),
-        "custom_jos_ec_code": ec_code,
+
         "posting_date": si.posting_date,
         "state": SRIQueueState.Generado.value,  # initial
+        
     }).insert(ignore_permissions=True)
 
     frappe.db.commit()
@@ -173,100 +154,60 @@ def enqueue_for_sales_invoice(si_name: str) -> str:
 
     return q.name
 
-def enqueue_on_nota_credito_submit(doc, method):
-    enqueue_for_nota_credito(doc.name)
+def enqueue_on_nota_credito_submit(doc, method: Optional[str] = None):
+    """Doc Event: Nota Credito FE.on_submit → create/refresh queue row and generate XML."""
+    if not doc or not getattr(doc, "name", None):
+        return
 
-def enqueue_on_nota_credito_cancel(doc, method):
-    qname = frappe.db.exists(QUEUE_DTYPE, {"reference_doctype": "Nota Credito FE", "reference_name": doc.name})
-    if qname:
-        frappe.db.set_value(QUEUE_DTYPE, qname, "state", SRIQueueState.Cancelado.value)
-
-def enqueue_on_nota_credito_trash(doc, method):
-    qname = frappe.db.exists(QUEUE_DTYPE, {"reference_doctype": "Nota Credito FE", "reference_name": doc.name})
-    if qname:
-        frappe.delete_doc(QUEUE_DTYPE, qname, force=True)
-
-def enqueue_for_nota_credito(nc_name: str) -> str:
-    nc = frappe.get_doc("Nota Credito FE", nc_name)
-    if nc.docstatus != 1:
-        frappe.throw(_("Nota Credito FE {0} must be submitted").format(nc.name))
-
-    q = frappe.get_doc({
-        "doctype": QUEUE_DTYPE,
-        "reference_doctype": "Nota Credito FE",
-        "reference_name": nc.name,
-        "company": nc.company,
-        "customer": nc.customer,
-        "posting_date": nc.posting_date,
-        "state": SRIQueueState.Generado.value,
-    }).insert(ignore_permissions=True)
-
-    frappe.db.commit()
-    frappe.publish_realtime("sri_xml_queue_changed", {"name": q.name, "state": q.state}, doctype=QUEUE_DTYPE)
-
-    try:
-        build_xml_for_queue(q.name)  # this will branch to credit note builder
-    except Exception as e:
-        frappe.log_error(f"XML build failed for NC {q.name}: {e}", "SRI XML Queue")
-        frappe.db.set_value(QUEUE_DTYPE, q.name, "state", SRIQueueState.Error.value)
-
-    return q.name
-
-# -----------------------------
-# Nota Credito FE enqueue
-# -----------------------------
-
-def enqueue_on_nota_credito_submit(doc, method):
-    enqueue_for_nota_credito(doc.name)
-
-
-def enqueue_on_nota_credito_cancel(doc, method):
-    qname = frappe.db.exists(
-        QUEUE_DTYPE,
-        {"reference_doctype": "Nota Credito FE", "reference_name": doc.name}
+    # upsert queue row for this NC
+    qname = frappe.db.get_value(
+        "SRI XML Queue",
+        {"reference_doctype": "Nota Credito FE", "reference_name": doc.name},
+        "name",
     )
-    if qname:
-        frappe.db.set_value(QUEUE_DTYPE, qname, "state", SRIQueueState.Cancelado.value)
+    if not qname:
+        q = frappe.get_doc({
+            "doctype": "SRI XML Queue",
+            "reference_doctype": "Nota Credito FE",
+            "reference_name": doc.name,
+            "company": doc.company,
+            "customer": getattr(doc, "customer", None),
+            "posting_date": doc.posting_date,
+            "state": SRIQueueState.Generado.value,  # initial
+        }).insert(ignore_permissions=True)
+        qname = q.name
 
+    # build XML for this queue row
+    file_url = build_xml_for_queue(qname)
 
-def enqueue_on_nota_credito_trash(doc, method):
-    qname = frappe.db.exists(
-        QUEUE_DTYPE,
-        {"reference_doctype": "Nota Credito FE", "reference_name": doc.name}
-    )
-    if qname:
-        frappe.delete_doc(QUEUE_DTYPE, qname, force=True)
-
-
-def enqueue_for_nota_credito(nc_name: str) -> str:
-    """Insert queue row for Nota Credito FE and trigger XML build."""
-    nc = frappe.get_doc("Nota Credito FE", nc_name)
-    if nc.docstatus != 1:
-        frappe.throw(_("Nota Credito FE {0} must be submitted").format(nc.name))
-
-    q = frappe.get_doc({
-        "doctype": QUEUE_DTYPE,
-        "reference_doctype": "Nota Credito FE",
-        "reference_name": nc.name,
-        "company": nc.company,
-        "customer": nc.customer,
-        "posting_date": nc.posting_date,
-        "state": SRIQueueState.Generado.value,
-    }).insert(ignore_permissions=True)
-
+    # mark as QUEUED (or keep as Generado if that’s your intended first state)
+    frappe.db.set_value("SRI XML Queue", qname, "state", SRIQueueState.QUEUED.value)
     frappe.db.commit()
 
-    frappe.publish_realtime(
-        "sri_xml_queue_changed",
-        {"name": q.name, "state": q.state},
-        doctype=QUEUE_DTYPE,
+
+def enqueue_on_nota_credito_cancel(doc, method: Optional[str] = None):
+    """Doc Event: Nota Credito FE.on_cancel → mark queue row as CANCELLED."""
+    if not doc or not getattr(doc, "name", None):
+        return
+    qname = frappe.db.get_value(
+        "SRI XML Queue",
+        {"reference_doctype": "Nota Credito FE", "reference_name": doc.name},
+        "name",
     )
+    if qname:
+        frappe.db.set_value("SRI XML Queue", qname, "state", SRIQueueState.CANCELLED)
+        frappe.db.commit()
 
-    try:
-        from josfe.sri_invoicing.core.queue.api import build_xml_for_queue
-        build_xml_for_queue(q.name)
-    except Exception as e:
-        frappe.log_error(f"XML build failed for Nota Credito FE {q.name}: {e}", "SRI XML Queue")
-        frappe.db.set_value(QUEUE_DTYPE, q.name, "state", SRIQueueState.Error.value)
 
-    return q.name
+def enqueue_on_nota_credito_trash(doc, method: Optional[str] = None):
+    """Doc Event: Nota Credito FE.on_trash → delete queue row."""
+    if not doc or not getattr(doc, "name", None):
+        return
+    qname = frappe.db.get_value(
+        "SRI XML Queue",
+        {"reference_doctype": "Nota Credito FE", "reference_name": doc.name},
+        "name",
+    )
+    if qname:
+        frappe.delete_doc("SRI XML Queue", qname, force=True)
+        frappe.db.commit()

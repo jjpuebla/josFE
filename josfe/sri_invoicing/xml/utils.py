@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import frappe
 import re
 import hashlib
 from datetime import date as _date, datetime as _dt
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
-from xml.etree.ElementTree import SubElement
+from lxml.etree import SubElement
+from lxml import etree
 
-import frappe
 from frappe.contacts.doctype.address.address import get_address_display
+
+# ✅ Correct numbering import (matches your actual file)
+from josfe.sri_invoicing.core.numbering.state import next_sequential
 
 TWOPLACES = Decimal("0.01")
 SIXPLACES = Decimal("0.000001")
@@ -71,17 +75,10 @@ def hash8_from_string(s: str) -> str:
 # XML safe text helper
 # ------------------------------
 
+
 def _text(parent, tag, val):
-    """
-    Safe XML helper: always create the tag and assign value as string.
-    If val is None, log and set as empty string.
-    """
     el = SubElement(parent, tag)
-    if val is None:
-        frappe.logger().warning(f"[XML Builder] Tag <{tag}> received None")
-        el.text = ""
-    else:
-        el.text = str(val)
+    el.text = "" if val is None else str(val)
     return el
 
 # ------------------------------
@@ -141,24 +138,93 @@ def get_obligado_contabilidad(company: str) -> str:
 # ------------------------------
 # Establishment / Point / Sequential
 # ------------------------------
-
 def get_ce_pe_seq(si) -> dict:
     """
-    Given a Sales Invoice doc (or name), return CE, PE, and sequencial (9d).
-    Prefer explicit fields if your workflow stores them; otherwise split from si.name.
+    Given a Sales Invoice doc (or name), return CE, PE, and the next 9-digit sequential.
+    Uses core numbering infra (Warehouse + PE → seq_factura).
     """
     if isinstance(si, str):
         si = frappe.get_doc("Sales Invoice", si)
-    # Try explicit fields first (if your workflow fills them)
-    ce = getattr(si, "sri_establishment_code", None)
-    pe = getattr(si, "sri_emission_point_code", None)
-    seq = getattr(si, "sri_sequential_assigned", None)
 
-    if not (ce and pe and seq):
-        parts = (si.name or "").split("-")
-        if len(parts) == 3:
-            ce, pe, seq = parts
-    return {"ce": z3(ce), "pe": z3(pe), "secuencial": z9(seq)}
+    # Warehouse (level 3)
+    wh = getattr(si, "custom_jos_level3_warehouse", None)
+    if not wh:
+        frappe.throw("Sales Invoice is missing 'custom_jos_level3_warehouse' to allocate sequence.")
+
+    # Establishment Code from Warehouse
+    ce = (frappe.get_cached_value("Warehouse", wh, "custom_establishment_code") or "").strip()
+    if not ce:
+        frappe.throw(f"Warehouse '{wh}' has no establishment code (custom_establishment_code).")
+    ce = z3(ce)
+
+    # Emission Point from SI (often "002 - Front Desk" → take '002')
+    raw_pe = (getattr(si, "custom_jos_sri_emission_point_code", "") or "").strip()
+    pe = ((raw_pe.split(" - ", 1)[0]).strip() if raw_pe else "")
+    if not pe:
+        frappe.throw("Sales Invoice is missing 'custom_jos_sri_emission_point_code' to allocate sequence.")
+    pe = z3(pe)
+
+    # Allocate next Factura number on this Warehouse + PE
+    seq_int = next_sequential(
+        warehouse_name=wh,
+        emission_point_code=pe,
+        doc_type="Factura"
+    )
+    return {"ce": ce, "pe": pe, "secuencial": z9(seq_int)}
+
+def get_ce_pe_seq_nc(nc) -> dict:
+    """
+    Given a Nota Credito FE doc (or name), return CE, PE, and sequential (9d).
+    Uses seq_nc counter from numbering infra.
+
+    Priority:
+      1. If linked_return_si exists, reuse CE/PE from that SI.
+      2. Else if source_invoice exists, reuse CE/PE from that SI.
+      3. Else fallback to '001'-'001'.
+
+    Always allocates the next sequential from seq_nc.
+    """
+    if isinstance(nc, str):
+        nc = frappe.get_doc("Nota Credito FE", nc)
+
+    ce, pe, wh = None, None, None
+
+    # Try linked_return_si (actual ERPNext return SI)
+    linked = getattr(nc, "linked_return_si", None)
+    if linked:
+        si = frappe.get_doc("Sales Invoice", linked)
+        codes = get_ce_pe_seq(si)
+        ce, pe = codes.get("ce"), codes.get("pe")
+        wh = getattr(si, "custom_jos_level3_warehouse", None)
+
+    # Fall back to source_invoice
+    if not (ce and pe):
+        src = getattr(nc, "source_invoice", None)
+        if src:
+            si = frappe.get_doc("Sales Invoice", src)
+            codes = get_ce_pe_seq(si)
+            ce, pe = codes.get("ce"), codes.get("pe")
+            wh = wh or getattr(si, "custom_jos_level3_warehouse", None)
+
+    # Default if nothing else
+    if not (ce and pe):
+        ce, pe = "001", "001"
+
+    # Require a warehouse to allocate the NC sequence consistently
+    if not wh:
+        # If your NC has its own warehouse field, prefer it; else last resort error
+        wh = getattr(nc, "custom_jos_level3_warehouse", None)
+    if not wh:
+        frappe.throw("No Warehouse found to allocate Nota de Crédito sequence. Please ensure the original SI or NC has a warehouse reference.")
+
+    # Allocate next NC number on this Warehouse + PE
+    seq_int = next_sequential(
+        warehouse_name=wh,
+        emission_point_code=pe,
+        doc_type="Nota de Crédito"
+    )
+    return {"ce": z3(ce), "pe": z3(pe), "secuencial": z9(seq_int)}
+
 
 # ------------------------------
 # Buyer ID type helper
@@ -287,7 +353,7 @@ def _sri_codes_for_tax_row(tax_row, pct: D):
 def _iter_item_tax_splits(si, item):
     """
     Read ERPNext Sales Taxes & Charges per-item split:
-      tax.item_wise_tax_detail[item_code] -> [amount, rate]
+      tax.item_wise_tax_detail[item_code] -> [rate, amount]
     """
     out = []
     for tax in (si.taxes or []):
@@ -445,12 +511,10 @@ def format_xml_string(xml_text: str) -> str:
 
 def format_xml_bytes(xml_bytes: bytes) -> bytes:
     """
-    Take XML bytes, return pretty-printed UTF-8 bytes with real accents (é, ñ, á).
+    Pretty-print and normalize XML bytes with declaration, using lxml.
     """
-    root = etree.fromstring(xml_bytes)
+    parser = etree.XMLParser(remove_blank_text=True, encoding="utf-8")
+    root = etree.fromstring(xml_bytes, parser=parser)
     return etree.tostring(
-        root,
-        pretty_print=True,
-        encoding="utf-8",
-        xml_declaration=False
+        root, xml_declaration=True, encoding="utf-8", pretty_print=True
     )

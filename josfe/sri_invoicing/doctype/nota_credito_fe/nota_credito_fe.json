@@ -1,14 +1,16 @@
 {
  "actions": [],
- "creation": "2025-09-19 15:41:59.064479",
+ "creation": "2025-09-20 14:05:47.916500",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "customer",
+  "custom_jos_level3_warehouse",
+  "custom_jos_sri_emission_point_code",
+  "source_invoice",
+  "posting_date",
   "credit_note_type",
   "company",
-  "customer",
-  "posting_date",
-  "source_invoice",
   "return_items",
   "free_items",
   "linked_return_si",
@@ -45,6 +47,17 @@
    "in_list_view": 1,
    "label": "Posting Date",
    "reqd": 1
+  },
+  {
+   "fieldname": "custom_jos_level3_warehouse",
+   "fieldtype": "Link",
+   "label": "Sucursal (3er nivel)",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "custom_jos_sri_emission_point_code",
+   "fieldtype": "Data",
+   "label": "Punto de Emisi\u00f3n"
   },
   {
    "depends_on": "eval:doc.credit_note_type=='By Products'",
@@ -87,7 +100,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-19 23:23:36.822461",
+ "modified": "2025-09-21 10:45:32.238466",
  "modified_by": "Administrator",
  "module": "sri_invoicing",
  "name": "Nota Credito FE",

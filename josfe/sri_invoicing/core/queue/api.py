@@ -181,7 +181,8 @@ def enqueue_on_nota_credito_submit(doc, method: Optional[str] = None):
     file_url = build_xml_for_queue(qname)
 
     # mark as QUEUED (or keep as Generado if that’s your intended first state)
-    frappe.db.set_value("SRI XML Queue", qname, "state", SRIQueueState.QUEUED.value)
+    frappe.db.set_value("SRI XML Queue", qname, "state", SRIQueueState.Generado.value)
+
     frappe.db.commit()
 
 

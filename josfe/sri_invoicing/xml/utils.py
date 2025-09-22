@@ -9,7 +9,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 from lxml.etree import SubElement
 from lxml import etree
-
+from frappe.utils import cstr
 from frappe.contacts.doctype.address.address import get_address_display
 
 # ✅ Correct numbering import (matches your actual file)
@@ -175,17 +175,30 @@ def get_ce_pe_seq(si) -> dict:
 def get_ce_pe_seq_nc(nc) -> dict:
     """
     Given a Nota Credito FE doc (or name), return CE, PE, and sequential (9d).
-    Uses seq_nc counter from numbering infra.
+    Uses the document's own number if already named, otherwise allocates.
 
     Priority:
       1. If linked_return_si exists, reuse CE/PE from that SI.
       2. Else if source_invoice exists, reuse CE/PE from that SI.
       3. Else fallback to '001'-'001'.
 
-    Always allocates the next sequential from seq_nc.
+    Priority:
+      0. If nc.name matches 'EC-PE-#########', parse and use it verbatim (no new allocation).
+      1. If linked_return_si exists, reuse CE/PE from that SI.
+      2. Else if source_invoice exists, reuse CE/PE from that SI.
+      3. Else fallback to '001'-'001' and allocate.
     """
     if isinstance(nc, str):
         nc = frappe.get_doc("Nota Credito FE", nc)
+
+    # 0) Try to parse from doc.name → guarantees XML == UI/Doc number
+    nm = cstr(getattr(nc, "name", "")).strip()
+    if nm and "-" in nm:
+        parts = nm.split("-")
+        if len(parts) == 3 and all(parts):
+            ec_try, pe_try, sec_try = parts
+            if len(ec_try) == 3 and len(pe_try) == 3 and len(sec_try) == 9 and sec_try.isdigit():
+                return {"ce": z3(ec_try), "pe": z3(pe_try), "secuencial": z9(sec_try)}
 
     ce, pe, wh = None, None, None
 

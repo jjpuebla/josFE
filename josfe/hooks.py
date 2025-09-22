@@ -114,6 +114,8 @@ doc_events = {
     },
     
     "Nota Credito FE": {
+        "autoname": "josfe.sri_invoicing.core.numbering.serie_autoname.nc_autoname",
+        "before_save": "josfe.sri_invoicing.core.numbering.serie_autoname.nc_before_save",
         "on_submit": "josfe.sri_invoicing.core.queue.api.enqueue_on_nota_credito_submit",
         "on_cancel": "josfe.sri_invoicing.core.queue.api.enqueue_on_nota_credito_cancel",
         "on_trash":  "josfe.sri_invoicing.core.queue.api.enqueue_on_nota_credito_trash",

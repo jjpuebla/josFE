@@ -1,16 +1,21 @@
 {
  "actions": [],
- "creation": "2025-09-20 14:05:47.916500",
+ "creation": "2025-09-21 16:17:52.867467",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "customer",
+  "customer_name",
+  "tax_id",
+  "company",
   "custom_jos_level3_warehouse",
   "custom_jos_sri_emission_point_code",
-  "source_invoice",
+  "column_break_khed",
+  "custom_sri_serie",
   "posting_date",
+  "sec_invoice_info",
+  "source_invoice",
   "credit_note_type",
-  "company",
   "return_items",
   "free_items",
   "linked_return_si",
@@ -18,12 +23,19 @@
  ],
  "fields": [
   {
-   "fieldname": "credit_note_type",
-   "fieldtype": "Select",
+   "fieldname": "customer",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Tipo de NC",
-   "options": "By Products\nFree-form",
+   "label": "Customer",
+   "options": "Customer",
    "reqd": 1
+  },
+  {
+   "fieldname": "tax_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Tax ID",
+   "read_only": 1
   },
   {
    "fieldname": "company",
@@ -34,30 +46,46 @@
    "reqd": 1
   },
   {
-   "fieldname": "customer",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Customer",
-   "options": "Customer",
-   "reqd": 1
-  },
-  {
    "fieldname": "posting_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Posting Date",
+   "label": "Posting Date1",
    "reqd": 1
+  },
+  {
+   "fieldname": "sec_invoice_info",
+   "fieldtype": "Section Break",
+   "label": "Invoice Info"
   },
   {
    "fieldname": "custom_jos_level3_warehouse",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Sucursal (3er nivel)",
-   "options": "Warehouse"
+   "options": "Warehouse",
+   "read_only": 1
   },
   {
    "fieldname": "custom_jos_sri_emission_point_code",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Punto de Emisi\u00f3n",
+   "read_only": 1
+  },
+  {
+   "fieldname": "custom_sri_serie",
    "fieldtype": "Data",
-   "label": "Punto de Emisi\u00f3n"
+   "in_list_view": 1,
+   "label": "Serie (SRI)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "credit_note_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Tipo de NC",
+   "options": "By Products\nFree-form",
+   "reqd": 1
   },
   {
    "depends_on": "eval:doc.credit_note_type=='By Products'",
@@ -96,11 +124,25 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "column_break_khed",
+   "fieldtype": "Column Break"
+  },
+  {
+   "bold": 1,
+   "depends_on": "customer",
+   "fetch_from": "customer.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Small Text",
+   "in_global_search": 1,
+   "label": "Customer Name",
+   "read_only": 1
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-21 10:45:32.238466",
+ "modified": "2025-09-21 22:48:20.190448",
  "modified_by": "Administrator",
  "module": "sri_invoicing",
  "name": "Nota Credito FE",

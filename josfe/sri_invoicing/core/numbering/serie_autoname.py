@@ -1,6 +1,6 @@
 import frappe
-from josfe.sri_invoicing.core.numbering.state import next_sequential
-from frappe.utils import cint
+from josfe.sri_invoicing.core.numbering.state import next_sequential, peek_next
+from frappe.utils import cint, cstr
 
 def z3(v): 
     return str(v or "").strip().zfill(3)
@@ -70,9 +70,39 @@ def si_before_save(doc, method):
     _ensure_sri_fields(doc)
 
 
+def nc_autoname(doc, method=None):
+    """
+    Autoname Nota Credito FE with independent series:
+    {EC}-{PE}-{#########}, using state.next_sequential(..., "Nota de Crédito")
+    """
+    wh = getattr(doc, "custom_jos_level3_warehouse", None)
+    if not wh:
+        frappe.throw("Seleccione la Sucursal (Warehouse nivel 3) antes de asignar numeración.")
+    ec = _establishment_of(wh)
+    raw_pe = cstr(getattr(doc, "custom_jos_sri_emission_point_code", "")).strip()
+    pe = z3(raw_pe.split(" - ", 1)[0] if raw_pe else raw_pe)
+    if not pe:
+        frappe.throw("Seleccione el Punto de Emisión (PE) antes de asignar numeración.")
+    seq = next_sequential(warehouse_name=wh, emission_point_code=pe, doc_type="Nota de Crédito")
+    doc.name = f"{z3(ec)}-{z3(pe)}-{z9(seq)}"
+    # CN display field used by UI and XML
+    setattr(doc, "custom_sri_serie", doc.name)
 
-import frappe
-from frappe.utils import cint
+def nc_before_save(doc, method=None):
+    _ensure_sri_fields(doc)
+
+@frappe.whitelist()
+def peek_next_nc_series(warehouse_name: str, emission_point_code: str) -> str:
+    """
+    Preview-only (no increment): return 'EC-PE-#########' for the next CN number.
+    Mirrors SI preview endpoint pattern.
+    """
+    if not warehouse_name or not emission_point_code:
+        return ""
+    ec = _establishment_of(warehouse_name)
+    pe = z3((emission_point_code or "").split(" - ", 1)[0])
+    nxt = peek_next(warehouse_name=warehouse_name, emission_point_code=pe, doc_type="Nota de Crédito")
+    return f"{z3(ec)}-{pe}-{z9(nxt)}"
 
 def sync_pe_next(est_code, ep_code, label, last_used):
     """Ensure PE row shows next available sequential (last_used + 1)."""

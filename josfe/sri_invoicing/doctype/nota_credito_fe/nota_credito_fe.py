@@ -1,6 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
+from datetime import date, timedelta
 
 def _prefill_numbering_from_source(self):
     """Ensure Sucursal (warehouse) and Punto de Emisión exist on the NC.
@@ -67,23 +68,6 @@ class NotaCreditoFE(Document):
                     rq = -rq
                     r.return_qty = rq
 
-                exists_on_source = frappe.db.exists(
-                    "Sales Invoice Item", {"parent": self.source_invoice, "item_code": r.item_code}
-                )
-                if exists_on_source:
-                    cap = _remaining_qty_for_item(self.source_invoice, r.item_code)
-                    if rq > cap:
-                        frappe.throw(
-                            _("Row #{idx}: Returned Qty {rq} exceeds remaining {cap} for item {code} on {si}.")
-                            .format(idx=r.idx, rq=rq, cap=cap, code=(r.item_code or ""), si=self.source_invoice)
-                        )
-                    if cap and not r.orig_qty:
-                        r.orig_qty = cap
-                else:
-                    # make it explicit in UI that source has no qty baseline
-                    if r.orig_qty is None:
-                        r.orig_qty = 0
-
         if self.credit_note_type == "Free-form":
             if not self.free_items:
                 frappe.throw(_("Add at least one row in Free-form Items"))
@@ -92,6 +76,19 @@ class NotaCreditoFE(Document):
 
         # Always ensure Sucursal & PE are present
         _prefill_numbering_from_source(self)
+
+        self._normalize_qty()
+
+    def _normalize_qty(self):
+        """Convert UI positive Return Qty into negative qty for ERPNext core compatibility."""
+        for r in self.return_items:
+            rq = (r.return_qty or 0)
+            if rq > 0:
+                r.qty = -1 * rq
+            else:
+                r.qty = rq
+
+
 
     def on_submit(self):
         self.create_return_invoice()
@@ -133,20 +130,35 @@ class NotaCreditoFE(Document):
                 if rq <= 0:
                     continue
 
-                si_row = _pick_any_si_row_for_item(self.source_invoice, r.item_code)
+                # ✅ fetch original SI row to copy all needed fields
+                si_row = frappe.db.get_value(
+                    "Sales Invoice Item",
+                    {"parent": self.source_invoice, "item_code": r.item_code},
+                    ["name", "item_code", "uom", "conversion_factor", "warehouse",
+                     "income_account", "cost_center", "batch_no", "serial_no", "rate"],
+                    as_dict=True
+                )
+
+                if not si_row:
+                    frappe.throw(_("Item {0} not found in source invoice {1}")
+                                 .format(r.item_code, self.source_invoice))
+
                 si.append("items", {
-                    "item_code": (si_row.get("item_code") if si_row else r.item_code),
+                    "item_code": si_row.item_code or r.item_code,
                     "qty": -abs(rq),
-                    "rate": r.rate or 0,
-                    "uom": (si_row.get("uom") if si_row else getattr(r, "uom", None)),
-                    "conversion_factor": (si_row.get("conversion_factor") if si_row else None),
-                    "warehouse": (si_row.get("warehouse") if si_row else getattr(self, "custom_jos_level3_warehouse", None)),
-                    "income_account": (si_row.get("income_account") if si_row else None),
-                    "cost_center": (si_row.get("cost_center") if si_row else None),
-                    "batch_no": (si_row.get("batch_no") if si_row else None),
-                    "serial_no": (si_row.get("serial_no") if si_row else None),
+                    "rate": r.rate or si_row.rate or 0,
+                    "uom": si_row.uom or r.uom,
+                    "conversion_factor": si_row.conversion_factor,
+                    "warehouse": si_row.warehouse or self.custom_jos_level3_warehouse,
+                    "income_account": si_row.income_account,
+                    "cost_center": si_row.cost_center,
+                    "batch_no": si_row.batch_no,
+                    "serial_no": si_row.serial_no,
+                    # 🔑 Critical link for ERPNext core validation
+                    "sales_invoice_item": si_row.name,
                 })
 
+            # copy taxes from source
             if si_src:
                 si.set("taxes", [])
                 for tx in si_src.get("taxes", []):
@@ -157,6 +169,14 @@ class NotaCreditoFE(Document):
                         "description": tx.description,
                         "cost_center": tx.cost_center,
                     })
+
+            # best-effort flags to avoid auto-reconcile
+            try:
+                setattr(si, "allocate_advances_automatically", 0)
+                setattr(si, "update_outstanding_for_self", 0)
+                setattr(si, "do_not_update_outstanding", 1)
+            except Exception:
+                pass
 
         elif self.credit_note_type == "Free-form":
             default_item = self.free_item_code
@@ -192,3 +212,96 @@ class NotaCreditoFE(Document):
         si.insert()
         si.submit()
         self.db_set("linked_return_si", si.name)
+
+        # Nudge SI list to refresh (UI)
+        try:
+            frappe.publish_realtime("list_update", {"doctype": "Sales Invoice"})
+        except Exception:
+            pass
+
+
+
+@frappe.whitelist()
+def si_last_12mo(doctype, txt, searchfield, start, page_len, filters):
+    """Link field query:
+    Only invoices for the selected Customer & Company, last 365 days,
+    matching Warehouse & Emission Point. Exclude returns/cancelled."""
+    customer = (filters or {}).get("customer")
+    company  = (filters or {}).get("company")
+    wh       = (filters or {}).get("custom_jos_level3_warehouse")
+    ep_code  = (filters or {}).get("custom_jos_sri_emission_point_code")
+
+    if not (customer and company and wh and ep_code):
+        return []
+
+    # Normalize EP to 3-digit prefix ("002" from "002 - Front Desk")
+    ep_prefix = (ep_code or "").split(" - ", 1)[0].strip()
+
+    since = (date.today() - timedelta(days=365)).isoformat()
+    rows = frappe.db.sql(
+        """
+        SELECT si.name
+        FROM `tabSales Invoice` si
+        WHERE si.docstatus = 1
+          AND IFNULL(si.is_return, 0) = 0
+          AND si.status NOT IN ('Cancelled')
+          AND si.company = %s
+          AND si.customer = %s
+          AND si.posting_date >= %s
+          AND si.custom_jos_level3_warehouse = %s
+          AND LEFT(IFNULL(si.custom_jos_sri_emission_point_code,''), 3) = %s
+        ORDER BY si.posting_date DESC, si.name DESC
+        LIMIT %s OFFSET %s
+        """,
+        (company, customer, since, wh, ep_prefix, page_len, start),
+    )
+    return rows
+
+@frappe.whitelist()
+def get_source_invoice_items(source_invoice: str):
+    """Return item rows with 'available_to_return' per source SI line."""
+    if not source_invoice:
+        return []
+
+    # All sell lines on the source SI
+    src_rows = frappe.db.sql(
+        """
+        SELECT item_code, item_name, uom, qty, rate
+        FROM `tabSales Invoice Item`
+        WHERE parent = %s
+        """,
+        (source_invoice,),
+        as_dict=True,
+    )
+
+    # Sum of returns per item_code on return SIs against this SI
+    returned = frappe.db.sql(
+        """
+        SELECT sii.item_code, ABS(SUM(sii.qty)) AS returned_qty
+        FROM `tabSales Invoice` si
+        JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        WHERE si.docstatus = 1
+         AND IFNULL(si.is_return,0) = 1
+          AND si.return_against = %s
+        GROUP BY sii.item_code
+        """,
+        (source_invoice,),
+        as_dict=True,
+    )
+    ret_by_code = {r.item_code: float(r.returned_qty or 0) for r in returned}
+
+    out = []
+    for r in src_rows:
+        sold = float(r.qty or 0)
+        already = float(ret_by_code.get(r.item_code, 0))
+        avail = max(0, sold - already)
+        out.append({
+            "item_code": r.item_code,
+            "item_name": r.item_name,
+            "uom": r.uom,
+            "orig_qty": avail,                 # shows "Available to Return"
+            "rate": float(r.rate or 0),
+            "amount": 0,
+            "return_qty": 0,
+        })
+    return out

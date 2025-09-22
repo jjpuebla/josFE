@@ -188,7 +188,7 @@ frappe.listview_settings["SRI XML Queue"] = {
       rowsMO.observe(root, { childList: true, subtree: true });
     })();
 
-    // === Auto-fit widths (wider Estado) ===
+    // ********************************=== Auto-fit widths (wider Estado) ===
     (function decorateCols() {
       const root = listview.$result && listview.$result[0];
       if (!root) return;
@@ -204,14 +204,12 @@ frappe.listview_settings["SRI XML Queue"] = {
       }
 
       const apply = () => {
+        // ID column (name)
         root
           .querySelectorAll(".list-row-col.list-subject")
           .forEach((c) => autoFitCell(c, 185, 200));
-        root
-          .querySelectorAll(".list-row-head .list-row-col.list-subject")
-          .forEach((c) => autoFitCell(c, 185, 200));
 
-        // Estado/status column — widen to 150–240
+        // Estado column
         root
           .querySelectorAll('.list-row-col .indicator-pill[data-filter^="state"]')
           .forEach((c) => {
@@ -219,27 +217,80 @@ frappe.listview_settings["SRI XML Queue"] = {
             if (cell) autoFitCell(cell, 150, 240);
           });
         root
-          .querySelectorAll(".list-row-head .list-row-col span")
-          .forEach((span) => {
-            if (span.textContent.trim() === "Status") {
-              span.textContent = "Estado";
-              const cell = span.closest(".list-row-col");
-              if (cell) autoFitCell(cell, 150, 240);
-            }
-          });
+            .querySelectorAll('.list-row-head .list-row-col span')
+            .forEach((span) => {
+              if (span.innerText.trim() === "Status") {
+                const cell = span.closest(".list-row-col");
+                if (cell) {
+                  autoFitCell(cell, 150, 240);
+                  // cell.style.background = "lightgreen";
+                }
+              }
+            });
 
-        // Sales Invoice column
+        // Documento Referencia column
         root
-          .querySelectorAll('.list-row-col .filterable[data-filter^="sales_invoice"]')
+          .querySelectorAll('.list-row-col .filterable[data-filter^="reference_name"]')
           .forEach((c) => {
             const cell = c.closest(".list-row-col");
             if (cell) autoFitCell(cell, 155, 165);
           });
         root
-          .querySelectorAll('.list-row-head .list-row-col span[data-sort-by="sales_invoice"]')
+            .querySelectorAll('.list-row-head .list-row-col span[data-sort-by="reference_name"]')
+            .forEach((span) => {
+              const cell = span.closest(".list-row-col");
+              if (cell) {
+                autoFitCell(cell, 155, 165);
+                // cell.style.background="green";
+              }
+            });
+
+        // Doc (reference_doctype)
+        root
+          .querySelectorAll('.list-row-col .filterable[data-filter^="reference_doctype"]')
+          .forEach((c) => {
+            const cell = c.closest(".list-row-col");
+            if (cell) autoFitCell(cell, 40, 50);
+          });
+        root
+          .querySelectorAll('.list-row-head .list-row-col span[data-sort-by="reference_doctype"]')
           .forEach((span) => {
             const cell = span.closest(".list-row-col");
-            if (cell) autoFitCell(cell, 155, 165);
+            if (cell) {autoFitCell(cell, 40, 50);
+              // cell.style.background="red";
+            }
+          });
+
+        // Cliente (customer)
+        root
+          .querySelectorAll('.list-row-col .filterable[data-filter^="customer"]')
+          .forEach((c) => {
+            const cell = c.closest(".list-row-col");
+            if (cell) autoFitCell(cell, 100, 110);
+          });
+        root
+          .querySelectorAll('.list-row-head .list-row-col span[data-sort-by="customer"]')
+          .forEach((span) => {
+            const cell = span.closest(".list-row-col");
+            if (cell) {autoFitCell(cell, 100, 110);
+              // cell.style.background="yellow";
+            }
+          });
+
+        // Fecha (posting_date / creation)
+        root
+          .querySelectorAll('.list-row-col .filterable[data-filter^="posting_date"]')
+          .forEach((c) => {
+            const cell = c.closest(".list-row-col");
+            if (cell) autoFitCell(cell, 90, 100);
+          });
+        root
+          .querySelectorAll('.list-row-head .list-row-col span[data-sort-by="posting_date"]')
+          .forEach((span) => {
+            const cell = span.closest(".list-row-col");
+            if (cell) {autoFitCell(cell, 90, 100);
+              // cell.style.background="green";
+            }
           });
       };
 

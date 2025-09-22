@@ -16,6 +16,9 @@ FIELD_BY_TYPE = {
     "Comprobante Retención": "seq_ret",
     "Liquidación Compra": "seq_liq",
     "Guía de Remisión": "seq_gr",
+    # 🔑 aliases for short codes
+    "FC": "Nota Credito FE",
+    "NC": "seq_nc",
 }
 
 PRIV_ROLES = {"System Manager", "Accounts Manager"}

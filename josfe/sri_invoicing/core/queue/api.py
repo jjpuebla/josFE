@@ -81,7 +81,7 @@ def enqueue_on_sales_invoice_submit(doc, method):
 
 def enqueue_on_sales_invoice_cancel(doc, method):
     """Hook: mark queue row as canceled if SI is canceled."""
-    qname = frappe.db.exists(QUEUE_DTYPE, {"sales_invoice": doc.name})
+    qname = frappe.db.exists(QUEUE_DTYPE, {"reference_doctype": "FC", "reference_name": doc.name})
     if qname:
         frappe.db.set_value(QUEUE_DTYPE, qname, "state", SRIQueueState.Cancelado.value)
         # 🔔 Notify tabs that state changed to Cancelado
@@ -94,7 +94,7 @@ def enqueue_on_sales_invoice_cancel(doc, method):
 
 def enqueue_on_sales_invoice_trash(doc, method):
     """Hook: delete queue row if SI is deleted."""
-    qname = frappe.db.exists(QUEUE_DTYPE, {"sales_invoice": doc.name})
+    qname = frappe.db.exists(QUEUE_DTYPE, {"reference_doctype": "FC", "reference_name": doc.name})
     if qname:
         frappe.delete_doc(QUEUE_DTYPE, qname, force=True)
         # 🔔 Notify tabs to refresh (we only send a hint; client just refreshes)
@@ -120,14 +120,13 @@ def enqueue_for_sales_invoice(si_name: str) -> str:
 
     q = frappe.get_doc({
         "doctype": QUEUE_DTYPE,
-        "sales_invoice": si.name,
+        "reference_doctype": "FC",       # shorthand for Sales Invoice
+        "reference_name": si.name,
         "company": si.company,
         "customer": getattr(si, "customer", None),
         "custom_jos_level3_warehouse": getattr(si, "custom_jos_level3_warehouse", None),
-
         "posting_date": si.posting_date,
-        "state": SRIQueueState.Generado.value,  # initial
-        
+        "state": SRIQueueState.Generado.value,
     }).insert(ignore_permissions=True)
 
     frappe.db.commit()
@@ -159,21 +158,24 @@ def enqueue_on_nota_credito_submit(doc, method: Optional[str] = None):
     if not doc or not getattr(doc, "name", None):
         return
 
-    # upsert queue row for this NC
+    # 🔑 FIX: use "NC" consistently both for lookup and insert
     qname = frappe.db.get_value(
         "SRI XML Queue",
-        {"reference_doctype": "Nota Credito FE", "reference_name": doc.name},
+        {"reference_doctype": "NC", "reference_name": doc.name},
         "name",
     )
+
     if not qname:
         q = frappe.get_doc({
             "doctype": "SRI XML Queue",
-            "reference_doctype": "Nota Credito FE",
+            "reference_doctype": "NC",
             "reference_name": doc.name,
             "company": doc.company,
             "customer": getattr(doc, "customer", None),
+            "custom_jos_level3_warehouse": getattr(doc, "custom_jos_level3_warehouse", None),
+            "custom_jos_sri_emission_point_code": getattr(doc, "custom_jos_sri_emission_point_code", None),
             "posting_date": doc.posting_date,
-            "state": SRIQueueState.Generado.value,  # initial
+            "state": SRIQueueState.Generado.value,
         }).insert(ignore_permissions=True)
         qname = q.name
 
@@ -187,28 +189,38 @@ def enqueue_on_nota_credito_submit(doc, method: Optional[str] = None):
 
 
 def enqueue_on_nota_credito_cancel(doc, method: Optional[str] = None):
-    """Doc Event: Nota Credito FE.on_cancel → mark queue row as CANCELLED."""
     if not doc or not getattr(doc, "name", None):
         return
     qname = frappe.db.get_value(
         "SRI XML Queue",
-        {"reference_doctype": "Nota Credito FE", "reference_name": doc.name},
+        {"reference_doctype": "NC", "reference_name": doc.name},
         "name",
     )
     if qname:
-        frappe.db.set_value("SRI XML Queue", qname, "state", SRIQueueState.CANCELLED)
+        frappe.db.set_value("SRI XML Queue", qname, "state", SRIQueueState.Cancelado.value)
+        frappe.publish_realtime(
+            "sri_xml_queue_changed",
+            {"name": qname, "state": SRIQueueState.Cancelado.value},
+            user=None,
+            doctype=QUEUE_DTYPE,
+        )
         frappe.db.commit()
 
 
 def enqueue_on_nota_credito_trash(doc, method: Optional[str] = None):
-    """Doc Event: Nota Credito FE.on_trash → delete queue row."""
     if not doc or not getattr(doc, "name", None):
         return
     qname = frappe.db.get_value(
         "SRI XML Queue",
-        {"reference_doctype": "Nota Credito FE", "reference_name": doc.name},
+        {"reference_doctype": "NC", "reference_name": doc.name},
         "name",
     )
     if qname:
         frappe.delete_doc("SRI XML Queue", qname, force=True)
+        frappe.publish_realtime(
+            "sri_xml_queue_changed",
+            {"deleted": qname},
+            user=None,
+            doctype=QUEUE_DTYPE,
+        )
         frappe.db.commit()

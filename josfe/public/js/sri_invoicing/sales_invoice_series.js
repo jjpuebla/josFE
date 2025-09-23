@@ -122,7 +122,8 @@ async function paintSeriePreview(frm) {
   const myReq = ++__seriePreviewReq;
   try {
     const { message } = await frappe.call({
-      method: "josfe.sri_invoicing.core.numbering.naming_series.peek_next_si_series",
+      method: "josfe.sri_invoicing.core.numbering.state.peek_next_si_series",
+      // method: "josfe.sri_invoicing.core.numbering.naming_series.peek_next_si_series",
       args: { warehouse: wh, pe_code: peCode }
     });
     if (myReq !== __seriePreviewReq) return;

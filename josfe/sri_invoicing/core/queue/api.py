@@ -20,18 +20,33 @@ QUEUE_DTYPE = "SRI XML Queue"
 # Core queue logic
 # -----------------------------
 
+# apps/josfe/josfe/sri_invoicing/queue/api.py
+
 @frappe.whitelist()
 def build_xml_for_queue(qname: str) -> str:
     """Generate XML for a queue row and persist path in xml_file (Generado stage).
-    Supports both Sales Invoice and Nota Credito FE.
+    Supports Sales Invoice (FC) and Nota Credito (NC).
     """
     q = frappe.get_doc(QUEUE_DTYPE, qname)
 
     try:
-        if getattr(q, "reference_doctype", None) == "Nota Credito FE":
-            from josfe.sri_invoicing.xml.builders import build_nota_credito_xml
-            xml_string, meta = build_nota_credito_xml(q.reference_name)
+        ref_dt = (getattr(q, "reference_doctype", "") or "").strip()
+        ref_name = getattr(q, "reference_name", None)
 
+        # --- Decide builder based on reference_doctype (accept short & long) ---
+        if ref_dt in ("NC", "Nota Credito FE"):
+            from josfe.sri_invoicing.xml.builders import build_nota_credito_xml
+            if not ref_name:
+                frappe.throw("Queue row missing document reference")
+            xml_string, meta = build_nota_credito_xml(ref_name)
+
+        elif ref_dt in ("FC", "Sales Invoice"):
+            from josfe.sri_invoicing.xml.builders import build_factura_xml
+            if not ref_name:
+                frappe.throw("Queue row missing document reference")
+            xml_string, meta = build_factura_xml(ref_name)
+
+        # Legacy support: older rows that stored a direct link field
         elif getattr(q, "sales_invoice", None):
             from josfe.sri_invoicing.xml.builders import build_factura_xml
             si = frappe.get_doc("Sales Invoice", q.sales_invoice)
@@ -52,10 +67,10 @@ def build_xml_for_queue(qname: str) -> str:
             data=xml_string.encode("utf-8"),
         )
 
-        # --- Persist file path in queue ---
+        # Persist file path in queue
         q.db_set("xml_file", file_url)
 
-        # 🔔 Notify once XML is ready
+        # Notify
         frappe.publish_realtime(
             "sri_xml_queue_changed",
             {"name": q.name, "state": q.state},

@@ -88,7 +88,8 @@
     }
     try {
       const r = await frappe.call({
-        method: "josfe.sri_invoicing.core.numbering.serie_autoname.peek_next_nc_series",
+        method: "josfe.sri_invoicing.core.numbering.state.peek_next_nc_series",
+        // method: "josfe.sri_invoicing.core.numbering.serie_autoname.peek_next_nc_series",
         args: { doc_type: "NC",warehouse_name: wh, emission_point_code: pe }
       });
       if (myReq !== __seriePreviewReq) return;

@@ -91,18 +91,6 @@ def nc_autoname(doc, method=None):
 def nc_before_save(doc, method=None):
     _ensure_sri_fields(doc)
 
-@frappe.whitelist()
-def peek_next_nc_series(warehouse_name: str, emission_point_code: str) -> str:
-    """
-    Preview-only (no increment): return 'EC-PE-#########' for the next CN number.
-    Mirrors SI preview endpoint pattern.
-    """
-    if not warehouse_name or not emission_point_code:
-        return ""
-    ec = _establishment_of(warehouse_name)
-    pe = z3((emission_point_code or "").split(" - ", 1)[0])
-    nxt = peek_next(warehouse_name=warehouse_name, emission_point_code=pe, doc_type="Nota de Crédito")
-    return f"{z3(ec)}-{pe}-{z9(nxt)}"
 
 def sync_pe_next(est_code, ep_code, label, last_used):
     """Ensure PE row shows next available sequential (last_used + 1)."""

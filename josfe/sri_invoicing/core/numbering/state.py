@@ -2,6 +2,7 @@
 import json
 import functools
 import frappe
+import re
 from pymysql.err import OperationalError
 from frappe.utils import now_datetime, has_common
 from frappe.exceptions import DuplicateEntryError
@@ -451,3 +452,43 @@ def list_active_emission_points(warehouse_name: str):
         code = str(r.get("emission_point_code") or "").strip().zfill(3)
         out.append({"code": code})  # ← no label; simple and safe
     return out
+
+# --- SRI serie preview (authoritative, non-allocating) ---
+
+def z3(v: str) -> str:
+    v = (v or "").strip().split(" - ", 1)[0]
+    digits = re.sub(r"\D", "", v)
+    return digits.zfill(3) if digits else ""
+
+def z9(n: int) -> str:
+    return f"{int(n):09d}"
+
+@frappe.whitelist()
+def peek_next_si_series(warehouse: str, pe_code: str) -> str:
+    """
+    Return 'EST-PE-#########' WITHOUT allocating,
+    reading the stored 'next to issue' from the counter row.
+    """
+    if not warehouse or not pe_code:
+        return ""
+
+    est = z3(frappe.db.get_value("Warehouse", warehouse, "custom_establishment_code") or "")
+    pe  = z3(pe_code)
+    if not est or not pe:
+        return ""
+
+    nxt = peek_next(warehouse_name=warehouse, emission_point_code=pe, doc_type="Factura")
+    return f"{est}-{pe}-{z9(nxt)}"
+
+@frappe.whitelist()
+def peek_next_nc_series(warehouse_name: str, emission_point_code: str) -> str:
+    """
+    Preview-only (no increment): return 'EC-PE-#########' for the next CN number.
+    Mirrors SI preview endpoint pattern.
+    """
+    if not warehouse_name or not emission_point_code:
+        return ""
+    ec = _establishment_of(warehouse_name)
+    pe = z3((emission_point_code or "").split(" - ", 1)[0])
+    nxt = peek_next(warehouse_name=warehouse_name, emission_point_code=pe, doc_type="Nota de Crédito")
+    return f"{z3(ec)}-{pe}-{z9(nxt)}"

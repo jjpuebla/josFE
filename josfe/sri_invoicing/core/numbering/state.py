@@ -488,7 +488,7 @@ def peek_next_nc_series(warehouse_name: str, emission_point_code: str) -> str:
     """
     if not warehouse_name or not emission_point_code:
         return ""
-    ec = _establishment_of(warehouse_name)
+    ec = _get_establishment_code(warehouse_name)
     pe = z3((emission_point_code or "").split(" - ", 1)[0])
     nxt = peek_next(warehouse_name=warehouse_name, emission_point_code=pe, doc_type="Nota de Crédito")
     return f"{z3(ec)}-{pe}-{z9(nxt)}"

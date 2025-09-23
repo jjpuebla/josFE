@@ -33,27 +33,35 @@ def build_xml_for_queue(qname: str) -> str:
         ref_dt = (getattr(q, "reference_doctype", "") or "").strip()
         ref_name = getattr(q, "reference_name", None)
 
-        # --- Decide builder based on reference_doctype (accept short & long) ---
-        if ref_dt in ("NC", "Nota Credito FE"):
-            from josfe.sri_invoicing.xml.builders import build_nota_credito_xml
-            if not ref_name:
-                frappe.throw("Queue row missing document reference")
-            xml_string, meta = build_nota_credito_xml(ref_name)
+        # --- Centralized builder dispatch ---
+        from josfe.sri_invoicing.xml import builders
 
-        elif ref_dt in ("FC", "Sales Invoice"):
-            from josfe.sri_invoicing.xml.builders import build_factura_xml
-            if not ref_name:
-                frappe.throw("Queue row missing document reference")
-            xml_string, meta = build_factura_xml(ref_name)
+        XML_BUILDERS = {
+            "FC": builders.build_factura_xml,
+            "Sales Invoice": builders.build_factura_xml,
+            "NC": builders.build_nota_credito_xml,
+            "Nota Credito FE": builders.build_nota_credito_xml,
+            # 🚀 Future-ready:
+            # "ND": builders.build_nota_debito_xml,
+            # "Nota Debito FE": builders.build_nota_debito_xml,
+            # "RT": builders.build_retencion_xml,
+            # "Retencion FE": builders.build_retencion_xml,
+            # "GR": builders.build_guia_remision_xml,
+            # "Guia Remision FE": builders.build_guia_remision_xml,
+        }
 
-        # Legacy support: older rows that stored a direct link field
-        elif getattr(q, "sales_invoice", None):
-            from josfe.sri_invoicing.xml.builders import build_factura_xml
-            si = frappe.get_doc("Sales Invoice", q.sales_invoice)
-            xml_string, meta = build_factura_xml(si.name)
-
+        builder = XML_BUILDERS.get(ref_dt)
+        if not builder:
+            # Legacy fallback for old queue rows with sales_invoice field
+            if getattr(q, "sales_invoice", None):
+                si = frappe.get_doc("Sales Invoice", q.sales_invoice)
+                xml_string, meta = builders.build_factura_xml(si.name)
+            else:
+                frappe.throw(f"Unsupported or missing reference_doctype: {ref_dt}")
         else:
-            frappe.throw("Queue row missing document reference")
+            if not ref_name:
+                frappe.throw("Queue row missing document reference")
+            xml_string, meta = builder(ref_name)
 
         # --- Filename and write to Generado folder ---
         estab = (meta.get("estab") or "000").zfill(3)

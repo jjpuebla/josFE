@@ -224,15 +224,15 @@ def build_factura_xml(si_name: str) -> tuple[str, dict]:
     return xml_string, meta
 
 def build_nota_credito_xml(nc_name: str):
-    """Build SRI Nota de Crédito XML (spec-complete) from Nota Credito FE doctype."""
+    """Build SRI Nota de Crédito XML (spec v2.31, aligned with authorized CN)."""
     nc = frappe.get_doc("Nota Credito FE", nc_name)
     company = frappe.get_doc("Company", nc.company)
 
-    # --- CE/PE/Sequential from utils (reuses SI's CE/PE where applicable) ---
+    # --- CE/PE/Sequential ---
     codes = get_ce_pe_seq_nc(nc)
     ce, pe, sec9 = codes["ce"], codes["pe"], codes["secuencial"]
 
-    # --- Ambiente & tipoEmision (reuse SI logic) ---
+    # --- Ambiente & tipoEmision ---
     def _resolve_ambiente_for_company(comp: str) -> str:
         try:
             amb = frappe.db.get_value("Credenciales SRI", {"company": comp, "jos_activo": 1}, "jos_ambiente")
@@ -251,16 +251,17 @@ def build_nota_credito_xml(nc_name: str):
     # --- Root XML element ---
     root = etree.Element("notaCredito", id="comprobante", version="1.0.0")
 
-    # --- infoTributaria ---
+    # -----------------------
+    # infoTributaria
+    # -----------------------
     infoTrib = etree.SubElement(root, "infoTributaria")
     _text(infoTrib, "ambiente", ambiente)
     _text(infoTrib, "tipoEmision", tipo_emision)
     _text(infoTrib, "razonSocial", company.custom_jos_razon_social or company.company_name)
     _text(infoTrib, "nombreComercial", company.custom_jos_nombre_comercial or company.company_name)
     _text(infoTrib, "ruc", company.tax_id)
-    _text(infoTrib, "codDoc", "04")  # Nota de Crédito
 
-    # Access key (clave de acceso) for NC
+    # claveAcceso MUST come before codDoc
     clave = generate_access_key(
         fecha_emision_ddmmyyyy=ddmmyyyy(nc.posting_date),
         cod_doc="04",
@@ -273,35 +274,39 @@ def build_nota_credito_xml(nc_name: str):
         tipo_emision=tipo_emision,
     )
     _text(infoTrib, "claveAcceso", clave)
+    _text(infoTrib, "codDoc", "04")
     _text(infoTrib, "estab", ce)
     _text(infoTrib, "ptoEmi", pe)
     _text(infoTrib, "secuencial", sec9)
     _text(infoTrib, "dirMatriz", company.custom_jos_direccion_matriz or get_company_address(company.name, prefer_title="Matriz"))
 
-    # --- infoNotaCredito ---
+    # -----------------------
+    # infoNotaCredito
+    # -----------------------
     infoNC = etree.SubElement(root, "infoNotaCredito")
     _text(infoNC, "fechaEmision", formatdate(nc.posting_date, "dd/mm/yyyy"))
-    # Establishment address (warehouse), not company
-    wh = getattr(nc, "custom_jos_level3_warehouse", None)
-    _text(infoNC, "dirEstablecimiento", get_warehouse_address(wh))
+    _text(infoNC, "dirEstablecimiento", get_warehouse_address(getattr(nc, "custom_jos_level3_warehouse", None)))
+
     buyer_tax = frappe.db.get_value("Customer", nc.customer, "tax_id")
     _text(infoNC, "tipoIdentificacionComprador", buyer_id_type(buyer_tax))
     _text(infoNC, "razonSocialComprador", frappe.db.get_value("Customer", nc.customer, "customer_name"))
     _text(infoNC, "identificacionComprador", buyer_tax or "")
-    _text(infoNC, "moneda", company.default_currency or "USD")
 
-    # Reference to original document (if present)
-    # Note: fields per SRI spec (motivo, numDocModificado, fechaEmisionDocSustento) may be required
-    # Here we include if source exists
-    motivo = getattr(nc, "reason", None) or "Devolución"
-    _text(infoNC, "motivo", motivo)
+    # Optional but usually required
+    _text(infoNC, "obligadoContabilidad", get_obligado_contabilidad(company.name))
+
+    # Reference to original Sales Invoice
     src_si_name = getattr(nc, "linked_return_si", None) or getattr(nc, "source_invoice", None)
-    if src_si_name:
-        src_si = frappe.get_doc("Sales Invoice", src_si_name)
-        _text(infoNC, "numDocModificado", src_si.name)
-        _text(infoNC, "fechaEmisionDocSustento", formatdate(src_si.posting_date, "dd/mm/yyyy"))
+    if not src_si_name:
+        frappe.throw("La Nota de Crédito requiere 'source_invoice' o 'linked_return_si'.")
+    src_si = frappe.get_doc("Sales Invoice", src_si_name)
+    _text(infoNC, "codDocModificado", "01")  # 01 = Factura
+    _text(infoNC, "numDocModificado", src_si.name)
+    _text(infoNC, "fechaEmisionDocSustento", formatdate(src_si.posting_date, "dd/mm/yyyy"))
 
-    # --- detalles ---
+    # -----------------------
+    # detalles + totals
+    # -----------------------
     detalles = etree.SubElement(root, "detalles")
     total_base = D("0.00")
     total_taxes = D("0.00")
@@ -322,10 +327,7 @@ def build_nota_credito_xml(nc_name: str):
             _text(det, "precioTotalSinImpuesto", f"{line_base:.2f}")
             total_base += line_base
 
-            # Taxes for this line (reuse SI taxes if available)
             imp_el = etree.SubElement(det, "impuestos")
-            # you can optionally pull the source SI row to know tax percentages
-            # for now we default to IVA 0% if unknown
             i = etree.SubElement(imp_el, "impuesto")
             _text(i, "codigo", "2")
             _text(i, "codigoPorcentaje", "0")
@@ -358,11 +360,26 @@ def build_nota_credito_xml(nc_name: str):
             _text(i, "baseImponible", f"{line_base:.2f}")
             _text(i, "valor", "0.00")
 
-    # Update totals in infoNotaCredito
+    # Totals in correct order
     _text(infoNC, "totalSinImpuestos", f"{total_base:.2f}")
     _text(infoNC, "valorModificacion", f"{(total_base + total_taxes):.2f}")
+    _text(infoNC, "moneda", company.default_currency or "USD")
 
-    # --- infoAdicional (optional) ---
+    # <totalConImpuestos> required by schema, even if 0
+    total_con_imp = etree.SubElement(infoNC, "totalConImpuestos")
+    total_imp = etree.SubElement(total_con_imp, "totalImpuesto")
+    _text(total_imp, "codigo", "2")
+    _text(total_imp, "codigoPorcentaje", "0")
+    _text(total_imp, "baseImponible", f"{total_base:.2f}")
+    _text(total_imp, "valor", f"{total_taxes:.2f}")
+
+    # motivo MUST be last
+    motivo = getattr(nc, "reason", None) or "Devolución"
+    _text(infoNC, "motivo", motivo)
+
+    # -----------------------
+    # infoAdicional
+    # -----------------------
     infoAd = etree.SubElement(root, "infoAdicional")
     ca = etree.SubElement(infoAd, "campoAdicional", {"nombre": "Documento"})
     ca.text = nc.name

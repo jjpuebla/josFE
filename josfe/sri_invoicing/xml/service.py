@@ -30,6 +30,8 @@ FINAL_DIRS = {
     "NO_AUTORIZADOS",
 }
 
+
+
 # ------------------------------
 # Path & file helpers
 # ------------------------------
@@ -209,10 +211,6 @@ def _process_signing(qdoc):
     if ready_xml != raw_xml:
         with open(old_path, "w", encoding="utf-8") as f:
             f.write(ready_xml)
-
-    # 🔁 Dynamic, future-proof signing for any SRI doc type
-    #    (factura, notaCredito, notaDebito, retencion, guiaRemision, etc.)
-    from josfe.sri_invoicing.xml.signer import sign_with_xmlsec
 
     # 🔁 Dynamic, future-proof signing for any SRI doc type
     from lxml import etree

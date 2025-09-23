@@ -32,6 +32,7 @@ ALLOWED: Dict[SRIQueueState, Set[SRIQueueState]] = {
     SRIQueueState.Error: {SRIQueueState.Generado, SRIQueueState.Cancelado},     # retry or cancel
 }
 
+
 def _coerce_state(val: str) -> SRIQueueState:
     try:
         return SRIQueueState(val)

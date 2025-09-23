@@ -157,7 +157,8 @@ def inject_signature_template(xml_text: str, cert_pem_path: str) -> str:
 def sign_with_xmlsec(input_xml: bytes, key_pem_path: str, cert_pem_path: str) -> bytes:
     """
     Call xmlsec1 to sign the XML produced by inject_signature_template.
-    IMPORTANT: we declare ID attributes so xmlsec can resolve our references.
+    IMPORTANT: declare ID attributes so xmlsec can resolve our references.
+    Works for factura, notaCredito, notaDebito, retencion, guiaRemision, etc.
     """
     with tempfile.TemporaryDirectory() as td:
         in_path = os.path.join(td, "in.xml")
@@ -165,13 +166,17 @@ def sign_with_xmlsec(input_xml: bytes, key_pem_path: str, cert_pem_path: str) ->
         with open(in_path, "wb") as f:
             f.write(input_xml)
 
+        # Detect the actual root element local name (strip namespaces)
+        root = etree.fromstring(input_xml)
+        root_name = root.tag.split("}", 1)[-1]
+
         cmd = [
             "xmlsec1",
             "--sign",
             "--privkey-pem",
             f"{key_pem_path},{cert_pem_path}",
             "--id-attr:id",
-            "factura",            # SRI invoices root element
+            root_name,           # dynamic: factura, notaCredito, retencion, etc.
             "--id-attr:Id",
             "SignedProperties",
             "--id-attr:Id",

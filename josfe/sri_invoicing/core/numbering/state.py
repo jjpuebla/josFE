@@ -17,7 +17,7 @@ FIELD_BY_TYPE = {
     "Liquidación Compra": "seq_liq",
     "Guía de Remisión": "seq_gr",
     # 🔑 aliases for short codes
-    "FC": "Nota Credito FE",
+    "FC": "seq_factura",
     "NC": "seq_nc",
 }
 

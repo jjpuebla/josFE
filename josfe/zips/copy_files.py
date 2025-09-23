@@ -7,18 +7,23 @@ from pathlib import Path
 dest_root = "/home/erpnext_user/dev-bench/apps/josfe/josfe/zips"
 
 # Name of the folder under zips/ where files will be copied
-folder_name = "export3"   # 👈 change this as needed
+folder_name = "export1"   # 👈 change this as needed
 dest_dir = os.path.join(dest_root, folder_name)
 
 # ==== FILES AND FOLDERS TO COPY ====
 files_to_copy = [
-    "/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/xml/xades_template.py",
-    "/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/doctype/sri_xml_queue/sri_xml_queue.py",
-    "/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/core/numbering/state.py",
-    "/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/core/numbering/serie_autoname.py",
-    "/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/core/utils/common.py",
-    "/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/core/validations/access_key.py",
-    "/home/erpnext_user/dev-bench/apps/josfe/josfe/public/js/sri_invoicing/sales_invoice_series.js",
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/xml/service.py",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/xml/signer.py",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/xml/xades_template.py",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/xml/utils.py",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/xml/builders.py",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/doctype/sri_xml_queue/sri_xml_queue.py",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/core/queue/api.py",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/hooks.py",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/doctype/credenciales_sri/credenciales_sri.js",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/core/signing/pem_tools.py",**
+	"/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/doctype/nota_credito_fe/api.py",
+    "/home/erpnext_user/dev-bench/apps/josfe/josfe/sri_invoicing/doctype/nota_credito_fe/nota_credito_fe.py",**
 
 ]
 

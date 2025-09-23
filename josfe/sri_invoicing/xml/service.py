@@ -202,40 +202,33 @@ def _process_signing(qdoc):
     if not os.path.exists(priv_pem) or not os.path.exists(cert_pem):
         frappe.throw("❌ PEM files not found. Ejecuta 'Validar Firma' en Credenciales SRI.")
 
-    # Inject signature template
+    # Inject signature template (ensures id="comprobante" on the document root)
     with open(old_path, "r", encoding="utf-8") as f:
         raw_xml = f.read()
     ready_xml = inject_signature_template(raw_xml, cert_pem)
-
-    # # Provoke DEVUELTA
-    # ready_xml = ready_xml.replace("</factura>", "<DEBUGPOINT>after_inject</DEBUGPOINT></factura>")
-
     if ready_xml != raw_xml:
         with open(old_path, "w", encoding="utf-8") as f:
             f.write(ready_xml)
 
-    # Run xmlsec1
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as tmp_out:
-        cmd = [
-            "xmlsec1", "--sign",
-            "--privkey-pem", f"{priv_pem},{cert_pem}",
-            "--id-attr:id", "factura",
-            "--output", tmp_out.name,
-            old_path,
-        ]
-        try:
-            subprocess.run(cmd, check=True, capture_output=True)
-        except subprocess.CalledProcessError as e:
-            stderr = (e.stderr or b"").decode(errors="ignore") or str(e)
-            frappe.throw(f"Error ejecutando xmlsec1: {frappe.utils.escape_html(stderr)}")
+    # 🔁 Dynamic, future-proof signing for any SRI doc type
+    #    (factura, notaCredito, notaDebito, retencion, guiaRemision, etc.)
+    from josfe.sri_invoicing.xml.signer import sign_with_xmlsec
 
-        os.replace(tmp_out.name, old_path)
+    try:
+        with open(old_path, "rb") as f:
+            signed = sign_with_xmlsec(f.read(), priv_pem, cert_pem)
+        with open(old_path, "wb") as f:
+            f.write(signed)
+    except Exception as e:
+        # Keep the original stderr visible if it came from xmlsec
+        msg = getattr(e, "args", [str(e)])[0]
+        frappe.throw(f"Error ejecutando xmlsec1: {frappe.utils.escape_html(msg)}")
 
     # ✅ Move to FIRMADOS and update DB immediately
     new_url = _move_xml_file(qdoc.xml_file, "Firmado")
     if new_url:
-        qdoc.db_set("xml_file", new_url)   # commit new path to DB
-        qdoc.xml_file = new_url            # update in-memory doc for next steps
+        qdoc.db_set("xml_file", new_url)
+        qdoc.xml_file = new_url
 
     # Bookkeeping
     qdoc.db_set("last_error", "")

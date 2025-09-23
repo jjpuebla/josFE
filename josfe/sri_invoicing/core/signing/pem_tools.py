@@ -106,10 +106,12 @@ def convertir_y_validar_seguro(cred_name=None, enc_password=None):
                 encryption_algorithm=serialization.NoEncryption()
             ))
         os.chmod(priv_pem, 0o600)
-        # Write certificate
+        # Write certificate + intermediates (full chain for xmlsec1 trust)
         with open(cert_pem, "wb") as f:
             f.write(pem_cert)
-        pem_log = f"✔ PEM generados: {os.path.basename(priv_pem)}, {os.path.basename(cert_pem)}"
+            if pem_cas:
+                f.write(pem_cas)
+        pem_log = f"✔ PEM generados: {os.path.basename(priv_pem)}, {os.path.basename(cert_pem)} (incluye cadena)"
     except Exception as e:
         pem_log = f"❌ Error generando PEM firmables: {e}"
 

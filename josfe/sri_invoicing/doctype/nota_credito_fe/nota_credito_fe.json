@@ -1,6 +1,6 @@
 {
  "actions": [],
- "creation": "2025-09-21 16:17:52.867467",
+ "creation": "2025-09-22 10:21:37.605765",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -33,19 +33,18 @@
   {
    "fieldname": "tax_id",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Tax ID",
    "read_only": 1
   },
   {
    "fieldname": "company",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Company",
    "options": "Company",
    "reqd": 1
   },
   {
+   "columns": 2,
    "fieldname": "posting_date",
    "fieldtype": "Date",
    "in_list_view": 1,
@@ -60,7 +59,6 @@
   {
    "fieldname": "custom_jos_level3_warehouse",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Sucursal (3er nivel)",
    "options": "Warehouse",
    "read_only": 1
@@ -68,21 +66,18 @@
   {
    "fieldname": "custom_jos_sri_emission_point_code",
    "fieldtype": "Select",
-   "in_list_view": 1,
    "label": "Punto de Emisi\u00f3n",
    "read_only": 1
   },
   {
    "fieldname": "custom_sri_serie",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Serie (SRI)",
    "read_only": 1
   },
   {
    "fieldname": "credit_note_type",
    "fieldtype": "Select",
-   "in_list_view": 1,
    "label": "Tipo de NC",
    "options": "By Products\nFree-form",
    "reqd": 1
@@ -142,7 +137,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-21 22:48:20.190448",
+ "modified": "2025-09-23 09:00:26.565138",
  "modified_by": "Administrator",
  "module": "sri_invoicing",
  "name": "Nota Credito FE",

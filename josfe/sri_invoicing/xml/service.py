@@ -214,15 +214,29 @@ def _process_signing(qdoc):
     #    (factura, notaCredito, notaDebito, retencion, guiaRemision, etc.)
     from josfe.sri_invoicing.xml.signer import sign_with_xmlsec
 
+    # 🔁 Dynamic, future-proof signing for any SRI doc type
+    from lxml import etree
+    from josfe.sri_invoicing.xml.signer import sign_with_xmlsec
+
+    # Preflight: detect root and confirm id="comprobante" exists anywhere
+    try:
+        root = etree.fromstring(ready_xml.encode("utf-8"))
+        root_name = root.tag.split("}", 1)[-1]
+        has_comprobante = bool(root.xpath('//*[@id="comprobante"]'))
+    except Exception as e:
+        frappe.throw(f"XML parse error antes de firmar: {frappe.utils.escape_html(str(e))}")
+
     try:
         with open(old_path, "rb") as f:
             signed = sign_with_xmlsec(f.read(), priv_pem, cert_pem)
         with open(old_path, "wb") as f:
             f.write(signed)
     except Exception as e:
-        # Keep the original stderr visible if it came from xmlsec
+        # Capture context: root, comprobante presence, and xmlsec stderr if any
+        ctx = f"[root={root_name} id#comprobante={'YES' if has_comprobante else 'NO'}]"
         msg = getattr(e, "args", [str(e)])[0]
-        frappe.throw(f"Error ejecutando xmlsec1: {frappe.utils.escape_html(msg)}")
+        frappe.throw(f"{ctx} Error ejecutando xmlsec1: {frappe.utils.escape_html(msg)}")
+
 
     # ✅ Move to FIRMADOS and update DB immediately
     new_url = _move_xml_file(qdoc.xml_file, "Firmado")

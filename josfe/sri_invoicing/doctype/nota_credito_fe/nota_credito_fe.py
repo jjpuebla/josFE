@@ -209,9 +209,26 @@ class NotaCreditoFE(Document):
                 it.warehouse = si.custom_jos_level3_warehouse
 
         si.flags.ignore_permissions = True
-        si.insert()
+
+
+#******************************************************** CHANGE NAME****************************************************************
+        # --- force the Sales Invoice name to match this NC's name ---
+        desired_si_name = self.name  # e.g. "002-002-000000050"
+        if frappe.db.exists("Sales Invoice", desired_si_name):
+            frappe.throw(_("A Sales Invoice already exists with name {0}.").format(desired_si_name))
+
+        si.name = desired_si_name
+        si.flags.name_set = True  # tell Frappe we're explicitly setting the name
+
+        # persist + submit
+        si.insert(ignore_permissions=True)
         si.submit()
+
+        # link back to NC (will now be exactly the CN number)
         self.db_set("linked_return_si", si.name)
+
+
+#******************************************************** CHANGE NAME****************************************************************
 
         # Nudge SI list to refresh (UI)
         try:

@@ -149,27 +149,29 @@
 
   function lockReturnItemsGrid(frm) {
     const grid = frm.get_field("return_items")?.grid;
-    if (!grid) return;
+  if (!grid || !grid.wrapper) return; // guard: grid not ready yet
 
-    // Make all fields read-only except return_qty
-    grid.docfields.forEach(df => {
-      if (df.fieldname !== "return_qty") {
-        df.read_only = 1;
-      } else {
-        df.read_only = 0; // allow editing only return_qty
-      }
-    });
-
-  // Hide Add Row button
-  if (grid.grid_buttons) {
-    grid.grid_buttons.hide();
-  }
-
-  // Hide "trash" (delete row) buttons
-  grid.wrapper.querySelectorAll('.grid-delete-row').forEach(btn => {
-    btn.style.display = 'none';
+  // 1) Make all fields read-only except return_qty
+  (grid.docfields || []).forEach(df => {
+    df.read_only = df.fieldname !== "return_qty" ? 1 : 0;
   });
 
+  // 2) Hide Add Row / Add Multiple buttons
+  // grid.grid_buttons is jQuery in ERPNext grids; hide if present
+  if (grid.grid_buttons && grid.grid_buttons.hide) {
+    grid.grid_buttons.hide();
+  }
+  // Also hide any inline add buttons rendered inside wrapper
+  const $wrap = grid.wrapper; // jQuery object
+  $wrap.find(".grid-add-row, .grid-add-multiple-rows").hide();
+
+  // 3) Hide "trash" (delete row) buttons
+  $wrap.find(".grid-delete-row").hide();
+
+  // (Optional) Disable row checkboxes to prevent selection
+  // $wrap.find(".grid-row-check, .grid-heading-row .grid-row-check").prop("disabled", true);
+
+  // 4) Repaint grid to apply docfield read_only changes
     grid.refresh();
   }
 
@@ -196,7 +198,16 @@
         .forEach(f => { const df = frm.get_field(f); if (df) { df.df.read_only = 1; df.refresh(); } });
 
       setInvoiceQuery(frm);
+
+  // run once now
       lockReturnItemsGrid(frm);
+
+  // re-run whenever the child grid re-renders (add/delete rows, paginate, etc.)
+  const grid = frm.get_field("return_items")?.grid;
+  if (grid?.wrapper) {
+    grid.wrapper.off("grid-render.nc-lock");
+    grid.wrapper.on("grid-render.nc-lock", () => lockReturnItemsGrid(frm));
+  }
 
       // If WH present but EP not yet populated (e.g., fresh load), ensure EP options exist
       if (frm.doc.custom_jos_level3_warehouse && !frm.fields_dict.custom_jos_sri_emission_point_code.df.options?.length) {

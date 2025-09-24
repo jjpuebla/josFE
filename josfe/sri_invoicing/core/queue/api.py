@@ -231,8 +231,24 @@ def enqueue_on_nota_credito_cancel(doc, method: Optional[str] = None):
 
 
 def enqueue_on_nota_credito_trash(doc, method: Optional[str] = None):
+    """Uniform trash behavior for NC:
+    1) Cancel+delete the linked return Sales Invoice (if any)
+    2) Remove the related SRI XML Queue row and notify listeners
+    """
     if not doc or not getattr(doc, "name", None):
         return
+
+    # --- 1) Cancel + delete the child Sales Invoice (uniform with our lifecycle) ---
+    si_name = getattr(doc, "linked_return_si", None)
+    if si_name and frappe.db.exists("Sales Invoice", si_name):
+        si = frappe.get_doc("Sales Invoice", si_name)
+        # Cancel first if submitted so GL remains consistent
+        if si.docstatus == 1:
+            si.cancel()
+        # Then delete the voucher
+        frappe.delete_doc("Sales Invoice", si_name, ignore_permissions=True, force=True)
+
+    # --- 2) Cleanup the SRI XML Queue entry for this NC and broadcast change ---
     qname = frappe.db.get_value(
         "SRI XML Queue",
         {"reference_doctype": "NC", "reference_name": doc.name},
@@ -246,4 +262,6 @@ def enqueue_on_nota_credito_trash(doc, method: Optional[str] = None):
             user=None,
             doctype=QUEUE_DTYPE,
         )
-        frappe.db.commit()
+
+    # Commit once at the end so both removals are persisted together
+    frappe.db.commit()

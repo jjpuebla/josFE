@@ -67,6 +67,14 @@ frappe.listview_settings["Sales Invoice"] = {
         .list-row-head .list-row-col:has([data-sort-by="custom_sri_serie"]) {
           flex: 0 1 auto; min-width: 160px; max-width: 240px;
         }
+         
+        /* Nota Credito (is_return) */
+        .list-row-head .list-row-col:has([data-sort-by="is_return"]) 
+        .list-row .list-row-col:has(a[data-filter^="is_return,="]) 
+        .list-row .list-row-col:has(a[data-filter^="is_return,="]),
+        .list-row-head .list-row-col:has([data-sort-by="is_return"]) {
+          flex: 0 1 auto; min-width: 10px; max-width: 15px;
+        }
 
         /* ID (name) */
         // .list-row-head .list-row-col:has([data-sort-by="name"]) { background: #ffd6d6; }
@@ -74,14 +82,35 @@ frappe.listview_settings["Sales Invoice"] = {
         .list-row-head .list-row-col:has([data-sort-by="name"]),
         .list-row .list-row-col:has(a[data-filter^="name,="]) {
         display: none !important;
+        }
         .list-row .list-row-col:has(a[data-filter^="name,="]),
         .list-row-head .list-row-col:has([data-sort-by="name"]) {
-          flex: 0 1 auto; min-width: 160px; max-width: 240px;
+          flex: 0 1 auto; 
+          min-width: 160px; 
+          max-width: 240px;
         }
       `;
       document.head.appendChild(style);
    }
 
+    // Rename "Is Return" header to "Tipo" ONLY in list view
+    (function renameIsReturnHeader() {
+      const HEADER_LABEL = __("NC");
+      const selector = '.list-row-head .list-row-col:has([data-sort-by="is_return"])';
+
+      const set = () => {
+        const el = document.querySelector(selector);
+        if (el && el.textContent !== HEADER_LABEL) el.textContent = HEADER_LABEL;
+      };
+
+      // initial pass
+      set();
+
+      // keep it stable across rerenders (no setTimeout)
+      const container = listview.$result && listview.$result.get(0);
+      if (!container) return;
+      new MutationObserver(() => set()).observe(container, { childList: true, subtree: true });
+    })();
 
   }
 };
